@@ -10,64 +10,67 @@ import threading
 
 class triniBotMotorController(threading.Thread):
 
-    def __init__(self, motorId, q):
+    def __init__(self, motors, q):
 
         threading.Thread.__init__(self)
-        self.motorId = motorId
-        if (self.motorId < 1 or self.motorId > 4):
-            print "ID out of range"
-            return (False)
-
-
         self.mh = Adafruit_MotorHAT(addr=0x60)
+        allmotors=[1,2,3,4]
+        self.motor = {}
+        self.motor.fromkeys(allmotors);
+        for (i,x) in enumerate(motors):
+            print"Initializing Motor %s" % x
+            if (x < 1 or x > 4):
+                print "ID out of range"
+                return (False)
+            self.motor[x] = self.mh.getMotor(x)
+            
         self.q = q
-        self.haltRequest == False
+        self.haltRequest = False
 
-    def initialize(self, i2cadd):
-        print "Starting motor %s" % self.motorId
-        self.motor = self.mh.getMotor(self.motorId - 1)
-
-    def setDirection(self, direction):
+    def setDirection(self, mId, direction):
 
         # Set the direction
         if direction == "FORWARD":
-            # print "Driving Forward"
-            self.motor.run(Adafruit_MotorHAT.FORWARD)
+            print "Driving Forward Motor %s " % mId
+            self.motor[mId].run(Adafruit_MotorHAT.FORWARD)
         elif direction == "REVERSE":
-            # print "Driving Backward"
-            self.motor.run(Adafruit_MotorHAT.BACKWARD)
+            print "Driving Backward Motor %s " % mId
+            self.motor[mId].run(Adafruit_MotorHAT.BACKWARD)
         else:
-            # print "Invalid direction"
+            print "Invalid direction"
             return (False)
 
-    def runMotor(self, speed):
+    def runMotor(self, mId, speed):
 
-        if (speed < 0 or speed > 255):
-            print "Invaid speed!"
-            return (False)
-
-        print("Running at " + repr(speed))
-        pwm = 0
-        while(self.haltRequest == True):
-                for x in range(0, 255):
-                    self.motor.setSpeed(x)
-                    wheel_speed = self.q.get()
-                    if wheel_speed > speed
-
-    def stopMotor(self, mID):
-        print("Attemping to stop " + repr(mID))
-        self.motor.run(Adafruit_MotorHAT.RELEASE)
-        self.haltRequest = True
-
-    # recommended for auto-disabling motors on shutdown!
-    def turnOffMotors(self):
-        self.motor.run(Adafruit_MotorHAT.RELEASE)
-
-    def run(self):
+        print "In run motor"
+        self.motor[mId].setSpeed(speed)
+        print "In run motor 2"
         wheel_speed = self.q.get()
-        speed = 0;
-        #self.setDirection("FORWARD")
-        self.runMotor(100)
+        print "In run motor 3"
+        print "Speed = %s" % wheel_speed
+        #previous_error = 0
+        #integral = 0
+        #PID controoler when everything is ready
+        #while(1)
+            #get time 
+            #error = setpoint - wheel_speed
+            #integral = integral + error*dt
+            #derivative = (error - previous_error)/dt
+            #output = Kp*error + Ki*integral + Kd*derivative
+            #previous_error = error
+                
+           
+
+    def stopMotors(self):
+        print("Attemping to stop all motors")
+        for mId in motors:
+            self.motor[mId].run(Adafruit_MotorHAT.RELEASE)
+        
+    # recommended for auto-disabling motors on shutdown!
+    def turnOffMotor(self, mId):
+        print "Releasing motor %s" % mId 
+        self.motor[mId].run(Adafruit_MotorHAT.RELEASE)
+
 
 
 
