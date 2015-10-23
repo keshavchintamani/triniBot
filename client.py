@@ -1,29 +1,23 @@
-import asyncore, socket
+import socket
+import sys
 
-class TCPClient(asyncore.dispatcher):
-
-    def __init__(self, host, port):
-        asyncore.dispatcher.__init__(self)
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect( (host, port) )
-
-    def handle_connect(self):
-        print self.recv(8192)
-        pass
-
-    def handle_close(self):
-        self.close()
-
-    def handle_read(self):
-        print self.recv(8192)
-
-    def writable(self):
-        return (len(self.buffer) > 0)
-
-    def handle_write(self):
-        sent = self.send(self.buffer)
-        self.buffer = self.buffer[sent:]
+HOST, PORT = "localhost", 9998
+data = " ".join(sys.argv[1:])
 
 
-client = TCPClient('localhost', '3412')
-asyncore.loop()
+
+# Create a socket (SOCK_STREAM means a TCP socket)
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+try:
+    # Connect to server and send data
+    sock.connect((HOST, PORT))
+    sock.sendall(data + "\n")
+
+    # Receive data from the server and shut down
+    received = sock.recv(1024)
+finally:
+    sock.close()
+
+print "Sent:     {}".format(data)
+print "Received: {}".format(received)
