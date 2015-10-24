@@ -8,6 +8,25 @@ import atexit
 import threading
 
 
+class EncoderThread(threading.Thread):
+
+    def __init__(self, threadID, name, q):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.q = q
+        #self.Serial = serial.Serial('/dev/ttyUSB0', 9600);
+        Random.random()
+        Random.seed()
+
+    def run(self):
+        #Get
+        while (True):
+            #line = self.Serial.readline()
+            line = Random.randint(1,10)
+            self.q.put(line)
+            Time.sleep(0.01)
+
 class triniBotMotorController(threading.Thread):
 
     def __init__(self, motors, q):

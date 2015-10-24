@@ -32,11 +32,14 @@ class tBTCPMotorHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         # self.request is the TCP socket connected to the client
         self.data = self.request.recv(1024).strip()
+        while(self.data ==''):
+            self.request.send("B")
+            
         print "{} wrote:".format(self.data)
         #print self.data
         req = self.data.split()
         if(len(req) < 1):
-             self.request.sendall("Sorry cant process empty commands!")
+             self.request.send("Sorry cant process empty commands!")
         #Handles incoming requests
         self.processRequest(req)
         
@@ -48,21 +51,23 @@ class tBTCPMotorHandler(SocketServer.BaseRequestHandler):
         if(command == "TB_INIT"):
             t = threading.Thread(target=initTriniBot)
             t.start()
-            self.request.sendall("TB_STATUS OK")
+            self.request.send("TB_STATUS OK")
         elif(command == "TB_DRIVE_FORWARD"):
-            tBMotion.DriveForward(100)
-            self.request.sendall("TB_STATUS OK")
+            t = threading.Thread(target=tBMotion.DriveForward, args=[100])
+            t.start();
+            self.request.send("TB_STATUS OK")
         elif(command == "TB_TURN_LEFT"):
             tBMotion.TurnLeft(80)
-            self.request.sendall("TB_STATUS OK")
+            self.request.send("TB_STATUS OK")
         elif(command == "TB_TURN_RIGHT"):
             tBMotion.TurnRight(80)
-            self.request.sendall("TB_STATUS OK")
+            self.request.send("TB_STATUS OK")
         elif(command == "TB_DRIVE_BACK"):
             tBMotion.DriveBackward(100)
-            self.request.sendall("TB_STATUS OK")
+            self.request.send("TB_STATUS OK")
         elif(command == "TB_DRIVE_STOP"):
-            self.request.sendall("TB_STATUS OK")
+            tBMotion.Stop()
+            self.request.send("TB_STATUS OK")
         else:
             self.request.sendall("TB_ERROR 0")
 
@@ -161,7 +166,7 @@ class tBController():
 
     def Stop(self):
         self.isRunning=False;
-        stopMotors()
+        self.tBMotors.stopMotors()
                                  
     #Wrapper and helper functions for Adafruit motorHat
 class tBMotorController():
