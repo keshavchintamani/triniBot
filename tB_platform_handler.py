@@ -28,42 +28,51 @@ class tBTCPMotorHandler(SocketServer.BaseRequestHandler):
     override the handle() method to implement communication to the
     client.
     """
- 
+    
     def handle(self):
-        # self.request is the TCP socket connected to the client
-        self.data = self.request.recv(1024).strip()
-        while(self.data ==''):
-            self.request.send("B")
+        while(True):
+            self.data = self.request.recv(1024)
+            if not self.data:
+                break
+            self.data = self.data.strip()
+            req = self.data.split()
+            if(len(req) < 1):
+                self.request.send("Sorry cant process empty commands!")
+            #Handles incoming requests
+            self.request.send("STILL_ALIVE")
+            reqThread = threading.Thread(target=self.processRequest, args=[req])
+            reqThread.start()
             
-        print "{} wrote:".format(self.data)
-        #print self.data
-        req = self.data.split()
-        if(len(req) < 1):
-             self.request.send("Sorry cant process empty commands!")
-        #Handles incoming requests
-        self.processRequest(req)
-        
 
     def processRequest(self, request):
 
         command = request[0]
-        print "{} is requested".format(command)
+        params = request[1:len(request)]
+        print "Client request:\n"
+        print "Command: {}".format(command)
+        print "Params :{}".format(params)
         if(command == "TB_INIT"):
-            t = threading.Thread(target=initTriniBot)
-            t.start()
+            #tBMotion.DriveForward(params)
+            #t = threading.Thread(target=initTriniBot)
+            #t.start()
             self.request.send("TB_STATUS OK")
         elif(command == "TB_DRIVE_FORWARD"):
-            t = threading.Thread(target=tBMotion.DriveForward, args=[100])
-            t.start();
+            tBMotion.DriveForward(params)
+            #t = threading.Thread(target=tBMotion.DriveForward, args=[params])
+            #t.start();
             self.request.send("TB_STATUS OK")
         elif(command == "TB_TURN_LEFT"):
-            tBMotion.TurnLeft(80)
+            tBMotion.TurnLeft(params)
+            #t = threading.Thread(target=tBMotion.TurnLeft, args=[params])
+            #t.start();
             self.request.send("TB_STATUS OK")
         elif(command == "TB_TURN_RIGHT"):
-            tBMotion.TurnRight(80)
+            #t = threading.Thread(target=tBMotion.TurnRight, args=[params])
+            #t.start();
             self.request.send("TB_STATUS OK")
         elif(command == "TB_DRIVE_BACK"):
-            tBMotion.DriveBackward(100)
+            #t = threading.Thread(target=tBMotion.DriveBackward, args=[params])
+            #t.start();
             self.request.send("TB_STATUS OK")
         elif(command == "TB_DRIVE_STOP"):
             tBMotion.Stop()
@@ -132,41 +141,68 @@ class tBController():
         self.motors=[LEFT_MOTOR, RIGHT_MOTOR]
         self.tBMotors = tBMotorController(self.motors, sensorQueue)
         self.isRunning=False
-
+        self.lock = threading.Lock()
+        
     def DriveForward(self,speed):
 
-        self.isRunning=True;
+        self.lock.acquire()
+        tBMotion.isRunning=True
+        self.lock.release()
+
         self.tBMotors.setDirection(LEFT_MOTOR, "FORWARD")
         self.tBMotors.setDirection(RIGHT_MOTOR, "FORWARD")
         #Might need to run these in threads
         while(self.isRunning ==True):
-            self.tBMotors.runMotor(LEFT_MOTOR, speed)
-            self.tBMotors.runMotor(RIGHT_MOTOR, speed)
+            self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
+            self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
+        print("Exiting DriveForward")
                                                 
     def DriveBackward(self,speed):
+        self.lock.acquire()
+        tBMotion.isRunning=True
+        self.lock.release()
+
         self.tBMotors.setDirection(LEFT_MOTOR, "REVERSE")
         self.tBMotors.setDirection(RIGHT_MOTOR, "REVERSE")
         #Might need to run these in threads
-        self.tBMotors.runMotor(LEFT_MOTOR, speed)
-        self.tBMotors.runMotor(RIGHT_MOTOR, speed)
+        while(self.isRunning ==True):
+            self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
+            self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
+        print("Exiting DriveBackward")
 
     def TurnLeft(self,speed):
+        self.lock.acquire()
+        tBMotion.isRunning=True
+        self.lock.release()
+
         self.tBMotors.setDirection(LEFT_MOTOR, "FORWARD")
         self.tBMotors.setDirection(RIGHT_MOTOR, "REVERSE")
         #Might need to run these in threads
-        self.tBMotors.runMotor(LEFT_MOTOR, speed)
-        self.tBMotors.runMotor(RIGHT_MOTOR, speed)
+        while(self.isRunning ==True):
+            self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
+            self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
+        print("Exiting Turn Left")
 
     def TurnRight(self,speed):
+        self.isRunning=True;
         self.tBMotors.setDirection(LEFT_MOTOR, "REVERSE")
         self.tBMotors.setDirection(RIGHT_MOTOR, "FORWARD")
         #Might need to run these in threads
-        self.tBMotors.runMotor(LEFT_MOTOR, speed)
-        self.tBMotors.runMotor(RIGHT_MOTOR, speed)
+        while(self.isRunning ==True):
+            self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
+            self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
+        print("Exiting Turn Right")
 
     def Stop(self):
-        self.isRunning=False;
+        self.lock.acquire()
+        tBMotion.isRunning=False
+        self.lock.release()
+
         self.tBMotors.stopMotors()
+
+    def checkIfRunning(self):
+        return(self.isRunning)
+    
                                  
     #Wrapper and helper functions for Adafruit motorHat
 class tBMotorController():
@@ -208,7 +244,6 @@ class tBMotorController():
 
     def runMotor(self, mId, speed):
 
-        print "In run motor"
         self.motor[mId].setSpeed(speed)
         #print "In run motor 2"
         #wheel_speed = self.encoderq.get()
