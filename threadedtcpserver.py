@@ -2,24 +2,36 @@ import socket
 import threading
 import SocketServer
 import time
+import zmq
 
+class robot():
 
-def initTriniBot():
-    #Do some cool stuff with the PiSense LEDs like a countdown
-    for i in range(0, 2):
-        print("Showing something wow %s") % i
-        time.sleep(1)
+    def init(self):
+        self.stat=False;
+        #Do some cool stuff with the PiSense LEDs like a countdown
+
+    def foo1(self):
+        self.stat=True
+        
+        while (self.stat==True):
+            print("In foo1 1") 
+            time.sleep(1)
+
+    def foo2(self):
+        self.stat=True
+        
+        while (self.stat==True):
+            print("In foo1 2") 
+            time.sleep(1)
+
+    def stopLoop(self):
+        self.stat=False
+    
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
 
-        #clientRequest = self.request.recv(1024)
-        #print "{}".format(clientRequest)
-        #while(clientRequest != ''):
-        #print(clientRequest)
-        #self.request.sendall("WAITING")
-        
         self.data = self.request.recv(1024).strip()
         print "{}".format(self.data)
         cur_thread = threading.current_thread()
@@ -35,12 +47,14 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         command = message[0]
         if(command == "TB_INIT"):
             #Initialize the app
-            initTriniBot()
+            r.init()
             self.request.send("TB_STATUS OK")
         elif(command == "TB_DRIVE_FORWARD"):
             self.request.send("TB_STATUS OK")
-        elif(command == "TB_DRIVE_LEFT"):
+            r.foo1()
+        elif(command == "TB_TURN_LEFT"):
             self.request.send("TB_STATUS OK")
+            r.foo2()
         elif(command == "TB_DRIVE_RIGHT"):
             self.request.send("TB_STATUS OK")
         elif(command == "TB_DRIVE_BACK"):
@@ -52,6 +66,9 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
+
+
+r = robot()
 
 if __name__ == "__main__":
     # Port 0 means to select an arbitrary unused port
@@ -67,4 +84,5 @@ if __name__ == "__main__":
     server_thread.daemon = True
     server_thread.start()
     print "Server loop running in thread:", server_thread.name
+    r.init()
 
