@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-# Simple DC motor controller script for Adafruit motor hat
 from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor
 
 import time as Time
@@ -10,110 +9,18 @@ import random as Random
 import Queue
 import serial
 from sense_hat import SenseHat
+from zmq_subscriber import zmqSub
 
 import SocketServer
-#import picamera
+import picamera
 import time
 
+ip="localhost"
+port="5556"
+if(len(sys.argv)>2):
+    ip=argv[1]
+    port=argv[2]
 
-#TODO
-#Ugly ugly code
-# single server instance and threaded for both sensors and motors
-#Server handler for sensor data requests
-class tBTCPMotorHandler(SocketServer.BaseRequestHandler):
-    """
-    The RequestHandler class for our server.
-
-    It is instantiated once per connection to the server, and must
-    override the handle() method to implement communication to the
-    client.
-    """
-    
-    def handle(self):
-        while(True):
-            self.data = self.request.recv(1024)
-            if not self.data:
-                break
-            self.data = self.data.strip()
-            req = self.data.split()
-            if(len(req) < 1):
-                self.request.send("Sorry cant process empty commands!")
-            #Handles incoming requests
-            self.request.send("STILL_ALIVE")
-            reqThread = threading.Thread(target=self.processRequest, args=[req])
-            reqThread.start()
-            
-
-    def processRequest(self, request):
-
-        command = request[0]
-        params = request[1:len(request)]
-        print "Client request:\n"
-        print "Command: {}".format(command)
-        print "Params :{}".format(params)
-        if(command == "TB_INIT"):
-            #tBMotion.DriveForward(params)
-            #t = threading.Thread(target=initTriniBot)
-            #t.start()
-            self.request.send("TB_STATUS OK")
-        elif(command == "TB_DRIVE_FORWARD"):
-            tBMotion.DriveForward(params)
-            #t = threading.Thread(target=tBMotion.DriveForward, args=[params])
-            #t.start();
-            self.request.send("TB_STATUS OK")
-        elif(command == "TB_TURN_LEFT"):
-            tBMotion.TurnLeft(params)
-            #t = threading.Thread(target=tBMotion.TurnLeft, args=[params])
-            #t.start();
-            self.request.send("TB_STATUS OK")
-        elif(command == "TB_TURN_RIGHT"):
-            #t = threading.Thread(target=tBMotion.TurnRight, args=[params])
-            #t.start();
-            self.request.send("TB_STATUS OK")
-        elif(command == "TB_DRIVE_BACK"):
-            #t = threading.Thread(target=tBMotion.DriveBackward, args=[params])
-            #t.start();
-            self.request.send("TB_STATUS OK")
-        elif(command == "TB_DRIVE_STOP"):
-            tBMotion.Stop()
-            self.request.send("TB_STATUS OK")
-        else:
-            self.request.sendall("TB_ERROR 0")
-
-#TODO
-#Ugly ugly code
-# single server instance and threaded for both sensors and motors
-#Server handler for sensor data requests
-class tBTCPSensorHandler(SocketServer.BaseRequestHandler):
-    """
-    The RequestHandler class for our server.
-
-    It is instantiated once per connection to the server, and must
-    override the handle() method to implement communication to the
-    client.
-    """
-
-    def handle(self):
-        # self.request is the TCP socket connected to the client
-        self.data = self.request.recv(1024).strip()
-        print "{} wrote:".format(self.client_address[0])
-        print self.data
-
-        req = self.data.split()
-        if(len(req) < 1):
-             self.request.sendall("Sorry cant process empty commands!")
-        #Handles incoming requests
-        self.processRequest(req)
-
-    def processRequest(self, request):
-
-        command = request[0]
-        if(command == "TB_GET_ENVIRONMENTAL"):
-            self.request.sendall("TB_STATUS OK")
-        elif(command == "TB_GET_INERTIAL"):
-             self.request.sendall("TB_STATUS OK")
-        else:
-             self.request.sendall("TB_ERROR 0")
 
 #A thread that reads encoder data from Arduino over Serial
 class tBEncoderCapture(threading.Thread):
@@ -134,80 +41,71 @@ class tBEncoderCapture(threading.Thread):
             self.q.put(line)
             Time.sleep(0.01)
 
-#Wrapper and helper functions for Adafruit motorHat
+#Implementation of Two wheeled robot assuming LEFT motor is 1 and RIGHT Motor is 3
 class tBController():
 
-    def __init__(self):
-        self.motors=[LEFT_MOTOR, RIGHT_MOTOR]
-        self.tBMotors = tBMotorController(self.motors, sensorQueue)
+    def __init__(self, leftMotorId, rightMotorId):
+        self.motors=[leftMotorId, rightMotorId]
+        self.tBMotors = tBMotorController(self.motors)
         self.isRunning=False
         self.lock = threading.Lock()
         
     def DriveForward(self,speed):
 
-        self.lock.acquire()
-        tBMotion.isRunning=True
-        self.lock.release()
-
         self.tBMotors.setDirection(LEFT_MOTOR, "FORWARD")
         self.tBMotors.setDirection(RIGHT_MOTOR, "FORWARD")
-        #Might need to run these in threads
         while(self.isRunning ==True):
             self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
             self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
-        print("Exiting DriveForward")
+            time.sleep(0.01)
+        print("Exiting Drive Forward")
                                                 
     def DriveBackward(self,speed):
-        self.lock.acquire()
-        tBMotion.isRunning=True
-        self.lock.release()
-
         self.tBMotors.setDirection(LEFT_MOTOR, "REVERSE")
         self.tBMotors.setDirection(RIGHT_MOTOR, "REVERSE")
-        #Might need to run these in threads
         while(self.isRunning ==True):
             self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
             self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
-        print("Exiting DriveBackward")
+            time.sleep(0.01)
+        print("Exiting Drive Backward")
 
     def TurnLeft(self,speed):
-        self.lock.acquire()
-        tBMotion.isRunning=True
-        self.lock.release()
-
+        
         self.tBMotors.setDirection(LEFT_MOTOR, "FORWARD")
         self.tBMotors.setDirection(RIGHT_MOTOR, "REVERSE")
-        #Might need to run these in threads
         while(self.isRunning ==True):
             self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
             self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
+            time.sleep(0.01)
         print("Exiting Turn Left")
 
     def TurnRight(self,speed):
-        self.isRunning=True;
         self.tBMotors.setDirection(LEFT_MOTOR, "REVERSE")
         self.tBMotors.setDirection(RIGHT_MOTOR, "FORWARD")
-        #Might need to run these in threads
         while(self.isRunning ==True):
             self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
             self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
+            time.sleep(0.01)
         print("Exiting Turn Right")
 
-    def Stop(self):
-        self.lock.acquire()
-        tBMotion.isRunning=False
-        self.lock.release()
+    def StopCurrentLoop(self):
+        #Makes an existing while loop in thread exit
+        self.isRunning=False
+        time.sleep(0.01)
+        #Set to true for next command
+        self.isRunning=True
 
+    def Stop():
         self.tBMotors.stopMotors()
-
-    def checkIfRunning(self):
+    
+    def GetIfRunning(self):
         return(self.isRunning)
     
                                  
-    #Wrapper and helper functions for Adafruit motorHat
+#Wrapper and helper functions for Adafruit motorHat
 class tBMotorController():
 
-    def __init__(self, motors, sensorq):
+    def __init__(self, motors):
 
         self.mh = Adafruit_MotorHAT(addr=0x60)
         allmotors=[1,2,3,4]
@@ -271,25 +169,71 @@ class tBMotorController():
         self.motor[mId].run(Adafruit_MotorHAT.RELEASE)
 
     def cleanClose():
+        sub.teardown()
         self.stopMotors()
 
 
 LEFT_MOTOR = 1
 RIGHT_MOTOR = 3
 
-threadLock = threading.Lock()
-sensorQueue = Queue.Queue()
 s = SenseHat()
 ticker = 0
-
 isInitialized=False;
 
-tBMotion = tBController();
+topicfilter = "tB_TOPIC_COMMAND"
+
+if __name__ == "__main__":
+
+    print "Collecting command updates from any publisher..."
+    sub = zmqSub("command_subscriber", ip, port, topicfilter)
+
+    #Create a platform controller for the motors
+    tBMotion = tBController()
+
+    while(True):
+        topic, message = sub.subscribe()
+        print "Received %s %s" % (topic, message)
+        command=message[0]
+        params=message[1:len(message)]
+        if(command == "TB_INIT"):
+            t = threading.Thread(target=initTriniBot)
+            t.start()
+        elif(command == "TB_DRIVE_FORWARD"):
+
+            tBMotion.StopCurrentLoop()
+            t = threading.Thread(target=tBMotion.DriveForward, args=[params])
+            t.start()
+        
+        elif(command == "TB_TURN_LEFT"):
+
+            tBMotion.StopCurrentLoop()
+            t = threading.Thread(target=tBMotion.TurnLeft, args=[params])
+            t.start()
+            
+        elif(command == "TB_TURN_RIGHT"):
+
+            tBMotion.StopCurrentLoop()
+            t = threading.Thread(target=tBMotion.TurnRight, args=[params])
+            t.start()
+            
+        elif(command == "TB_DRIVE_BACK"):
+
+            tBMotion.StopCurrentLoop()
+            t = threading.Thread(target=tBMotion.DriveBackward, args=[params])
+            t.start()
+            
+        elif(command == "TB_DRIVE_STOP"):
+
+            tBMotion.Stop()
+
+        #Read at 1KHz
+        time.sleep(0.001)
+            
 
 def initTriniBot():
     #Initial a motor controller
     
-    s.show_message("Initializing...", 0.1, [255,0,0], [0,0,0])
+    s.show_message("Start...", 0.1, [255,0,0], [0,0,0])
     time.sleep(0.5)
     i=3
     while(i>0):
