@@ -2,6 +2,7 @@ import socket
 import sys
 import atexit
 import Tkinter
+import subprocess
 from zmq_publisher import zmqPub
 
 ip="localhost"
@@ -12,6 +13,7 @@ if(len(sys.argv)>2):
 
 #Define the main topics to be published on 0mq
 topic = "tB_TOPIC_COMMAND"
+
 
 class robotGUI_tk(Tkinter.Tk):
     def __init__(self,parent):
@@ -24,24 +26,30 @@ class robotGUI_tk(Tkinter.Tk):
     def initialize(self):
         self.grid()
 
+        labelStatus = Tkinter.Label(self,  text = u"Status", anchor="w", fg="white", bg ="blue")
+        labelStatus.grid(column=0, row=0, sticky='EW')
+
+        vidLaunchbutton = Tkinter.Button(self, text=u"Stream", command = self.OnStreamVideoButtonClick)
+        vidLaunchbutton.grid(column=2, row = 0)
+
+        
 
         self.videoEntryVar = Tkinter.StringVar(value="rtsp://192.168.1.9:8554/unicast")
         
-       
         labelVid = Tkinter.Label(self,  text = u"Video", anchor="w", fg="white", bg ="blue")
-        labelVid.grid(column=0, row=0, sticky='EW')
+        labelVid.grid(column=0, row=1, sticky='EW')
 
         self.speedEntryVar = Tkinter.StringVar(value="100")
 
         labelSpeed = Tkinter.Label(self, text = u"Speed", anchor="w", fg="white", bg ="blue")
-        labelSpeed.grid(column=0, row=1, sticky='EW')
+        labelSpeed.grid(column=0, row=2, sticky='EW')
 
         
         videoentry = Tkinter.Entry(self, textvariable = self.videoEntryVar )
-        videoentry.grid(column=1, row = 0, sticky='EW')
+        videoentry.grid(column=1, row = 1, sticky='EW')
         videoentry.bind("<Return>", self.OnVideoPressEnter)
         speedentry = Tkinter.Entry(self, textvariable = self.speedEntryVar )
-        speedentry.grid(column=1, row = 1, sticky='EW')
+        speedentry.grid(column=1, row = 2, sticky='EW')
         speedentry.bind("<Return>", self.OnSpeedPressEnter)
         
                
@@ -61,6 +69,12 @@ class robotGUI_tk(Tkinter.Tk):
 
         bbutton = Tkinter.Button(self, text=u"back", command = self.OnBackButtonClick)
         bbutton.grid(column=3, row = 3)
+
+    def OnStreamVideoButtonClick(self):
+        print "You pressed  %s" % self.videoEntryVar.get()
+        print "Starting vlc"
+        subprocess.Popen(["vlc", self.videoEntryVar.get()])
+        
 
     def OnVideoPressEnter(self,event):
         print "You pressed  %s" % self.videoEntryVar.get()
@@ -84,7 +98,9 @@ class robotGUI_tk(Tkinter.Tk):
     def OnStopButtonClick(self):
         self.pub.publish(topic,"TB_DRIVE_STOP")
 
-    def gracefullyExit():
+    def gracefullyExit(self):
+        #Stop the motors
+        OnStopButtonClick()
         self.pub.teardown()
      
 
