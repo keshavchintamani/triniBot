@@ -10,16 +10,21 @@ import Queue
 import serial
 from sense_hat import SenseHat
 from zmq_subscriber import zmqSub
-
-import SocketServer
+import sys
 import picamera
 import time
+from subprocess import call
+import subprocess
 
-ip="localhost"
-port="5556"
-if(len(sys.argv)>2):
-    ip=argv[1]
-    port=argv[2]
+
+if(len(sys.argv)<2):
+    ip="localhost"
+    port=5556
+    print "Insufficient args so defaulting to {}:{}".format(ip,port)
+else:
+    ip=sys.argv[1]
+    port=sys.argv[2]
+    print "Subscribing to {}:{}".format(ip,port)
 
 
 #A thread that reads encoder data from Arduino over Serial
@@ -95,7 +100,7 @@ class tBController():
         #Set to true for next command
         self.isRunning=True
 
-    def Stop():
+    def Stop(self):
         self.tBMotors.stopMotors()
     
     def GetIfRunning(self):
@@ -119,7 +124,7 @@ class tBMotorController():
                 return (False)
             self.motor[x] = self.mh.getMotor(x)
             
-        self.sensorq = sensorq
+        #self.sensorq = sensorq
         self.haltRequest = False
         self.speed = 0;
         #TODO
@@ -169,47 +174,79 @@ class tBMotorController():
         self.motor[mId].run(Adafruit_MotorHAT.RELEASE)
 
     def cleanClose():
-        sub.teardown()
         self.stopMotors()
 
 
+
+
+    
 LEFT_MOTOR = 1
 RIGHT_MOTOR = 3
 
-s = SenseHat()
 ticker = 0
-isInitialized=False;
 
+mainloop=True
 topicfilter = "tB_TOPIC_COMMAND"
+#Create a subscriber
+print "Collecting command updates from any publisher..."
+sub = zmqSub("command_subscriber", ip, port, topicfilter)
+
+def CleanUpandExit():
+    print("Cleaning up and closing... Goodbye!")
+    sub.teardown()
+    mainloop=False
+    
+
+def initTriniBot():
+
+    global sHat, tBMotion 
+    #Start the video server
+    subprocess.Popen(["h264_v4l2_rtspserver"])
+    #Get a reference to sensehat
+    sHat = SenseHat()
+    #Create a platform controller for the motors
+    tBMotion = tBController(LEFT_MOTOR, RIGHT_MOTOR)
+
+    atexit.register(CleanUpandExit)
+    
+    sHat.show_message("Start...", 0.1, [255,0,0], [0,0,0])
+    time.sleep(0.5)
+    i=3
+    while(i>0):
+        sHat.show_letter(str(i), [Random.randint(0,255),Random.randint(0,255),Random.randint(0,255)],[0,0,0])
+        time.sleep(1)
+        i=i-1
+    sHat.clear()
+    return(True)
+
 
 if __name__ == "__main__":
 
-    print "Collecting command updates from any publisher..."
-    sub = zmqSub("command_subscriber", ip, port, topicfilter)
+    global sHat, tBMotion 
 
-    #Create a platform controller for the motors
-    tBMotion = tBController()
-
-    while(True):
+    if(initTriniBot()):
+        print "Successfully initialized TriniBot"
+    else:
+        print "Something went wrong :-(..."
+        sys.exit()
+    while(mainloop==True): 
         topic, message = sub.subscribe()
         print "Received %s %s" % (topic, message)
         command=message[0]
         params=message[1:len(message)]
-        if(command == "TB_INIT"):
-            t = threading.Thread(target=initTriniBot)
-            t.start()
-        elif(command == "TB_DRIVE_FORWARD"):
+      
+        if(command == "TB_DRIVE_FORWARD"):
 
             tBMotion.StopCurrentLoop()
             t = threading.Thread(target=tBMotion.DriveForward, args=[params])
             t.start()
-        
+            
         elif(command == "TB_TURN_LEFT"):
 
             tBMotion.StopCurrentLoop()
             t = threading.Thread(target=tBMotion.TurnLeft, args=[params])
             t.start()
-            
+        
         elif(command == "TB_TURN_RIGHT"):
 
             tBMotion.StopCurrentLoop()
@@ -228,18 +265,4 @@ if __name__ == "__main__":
 
         #Read at 1KHz
         time.sleep(0.001)
-            
-
-def initTriniBot():
-    #Initial a motor controller
-    
-    s.show_message("Start...", 0.1, [255,0,0], [0,0,0])
-    time.sleep(0.5)
-    i=3
-    while(i>0):
-        s.show_letter(str(i), [Random.randint(0,255),Random.randint(0,255),Random.randint(0,255)],[0,0,0])
-        time.sleep(1)
-        i=i-1
-    s.clear()
-
-
+        

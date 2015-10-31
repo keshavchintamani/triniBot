@@ -4,21 +4,11 @@ import time
 import threading
 import atexit
 
-ip="localhost"
-port = "5556"
-if len(sys.argv) > 1:
-    port =  sys.argv[1]
-    int(port)
-    
-if len(sys.argv) > 2:
-    port1 =  sys.argv[2]
-    int(port1)
-
 #Class to subscribe topics
 class zmqSub():
     def __init__(self, subName, ip, port, topicfilter):
         self.name = subName
-        self.port = port
+        self.port = int(port)
         self.ip = ip
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.SUB)
