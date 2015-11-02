@@ -46,6 +46,21 @@ class tBEncoderCapture(threading.Thread):
             self.q.put(line)
             Time.sleep(0.01)
 
+#A thread that reads encoder data from Arduino over Serial
+class tBSensorCapture(threading.Thread):
+
+    def __init__(self, threadID, q, senseHat):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.q = q
+        self.senseHat=senseHat
+
+    def run(self):
+        #Get
+        while (True):
+            
+            
+
 #Implementation of Two wheeled robot assuming LEFT motor is 1 and RIGHT Motor is 3
 class tBController():
 
