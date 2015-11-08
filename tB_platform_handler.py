@@ -58,14 +58,13 @@ class tBSensorCapture(threading.Thread):
     def run(self):
         #Get
         while (True):
-            
-            
+            print("Getting sensors")
 
 #Implementation of Two wheeled robot assuming LEFT motor is 1 and RIGHT Motor is 3
+# now includes steering control
 class tBController():
-
-    def __init__(self, leftMotorId, rightMotorId):
-        self.motors=[leftMotorId, rightMotorId]
+    def __init__(self, leftMotorId, rightMotorId, steering):
+        self.motors=[leftMotorId, rightMotorId, steering]
         self.tBMotors = tBMotorController(self.motors)
         self.isRunning=False
         self.lock = threading.Lock()
@@ -89,10 +88,29 @@ class tBController():
             time.sleep(0.01)
         print("Exiting Drive Backward")
 
+    def steerLeft(self,speed):
+
+        self.tBMotors.setDirection(STEERING, "FORWARD")
+        while(self.isRunning ==True):
+            self.tBMotors.runMotor(STEERING, int(speed[0]))
+            #self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
+            time.sleep(0.01)
+        print("Exiting Turn Left")
+
+    def steerRight(self,speed):
+
+        self.tBMotors.setDirection(STEERING, "REVERSE")
+        while(self.isRunning ==True):
+            self.tBMotors.runMotor(STEERING, int(speed[0]))
+            #self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
+            time.sleep(0.01)
+        print("Exiting Turn Left")
+
+        
     def TurnLeft(self,speed):
         
-        self.tBMotors.setDirection(LEFT_MOTOR, "FORWARD")
-        self.tBMotors.setDirection(RIGHT_MOTOR, "REVERSE")
+        self.tBMotors.setDirection(LEFT_MOTOR, "REVERSE")
+        self.tBMotors.setDirection(RIGHT_MOTOR, "FORWARD")
         while(self.isRunning ==True):
             self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
             self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
@@ -100,8 +118,8 @@ class tBController():
         print("Exiting Turn Left")
 
     def TurnRight(self,speed):
-        self.tBMotors.setDirection(LEFT_MOTOR, "REVERSE")
-        self.tBMotors.setDirection(RIGHT_MOTOR, "FORWARD")
+        self.tBMotors.setDirection(LEFT_MOTOR, "FORWARD")
+        self.tBMotors.setDirection(RIGHT_MOTOR, "REVERSE")
         while(self.isRunning ==True):
             self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
             self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
@@ -197,7 +215,7 @@ class tBMotorController():
     
 LEFT_MOTOR = 1
 RIGHT_MOTOR = 3
-
+STEERING = 4
 ticker = 0
 
 mainloop=True
@@ -218,20 +236,20 @@ def initTriniBot():
     #Start the video server
     subprocess.Popen(["h264_v4l2_rtspserver"])
     #Get a reference to sensehat
-    sHat = SenseHat()
+    #sHat = SenseHat()
     #Create a platform controller for the motors
-    tBMotion = tBController(LEFT_MOTOR, RIGHT_MOTOR)
+    tBMotion = tBController(LEFT_MOTOR, RIGHT_MOTOR, STEERING)
 
     atexit.register(CleanUpandExit)
     
-    sHat.show_message("Start...", 0.1, [255,0,0], [0,0,0])
-    time.sleep(0.5)
-    i=3
-    while(i>0):
-        sHat.show_letter(str(i), [Random.randint(0,255),Random.randint(0,255),Random.randint(0,255)],[0,0,0])
-        time.sleep(1)
-        i=i-1
-    sHat.clear()
+    #sHat.show_message("Start...", 0.1, [255,0,0], [0,0,0])
+    #time.sleep(0.5)
+    #i=3
+    #while(i>0):
+    #    sHat.show_letter(str(i), [Random.randint(0,255),Random.randint(0,255),Random.randint(0,255)],[0,0,0])
+    #    time.sleep(1)
+    #    i=i-1
+    #sHat.clear()
     return(True)
 
 
@@ -277,7 +295,15 @@ if __name__ == "__main__":
         elif(command == "TB_DRIVE_STOP"):
 
             tBMotion.Stop()
-
+        elif(command == "TB_DRIVE_HUBLEFT"):
+            tBMotion.StopCurrentLoop()
+            t = threading.Thread(target=tBMotion.steerLeft, args=[params])
+            t.start()
+        elif(command == "TB_DRIVE_HUBRIGHT"):
+            tBMotion.StopCurrentLoop()
+            t = threading.Thread(target=tBMotion.steerRight, args=[params])
+            t.start()
+            
         #Read at 1KHz
         time.sleep(0.001)
         
