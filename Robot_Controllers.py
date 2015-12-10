@@ -91,18 +91,24 @@ class TwoWheelRobot():
         elif(direction==self.Directions[3]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
+        self.isRunning= True;
         t=threading.Thread(target=self.RunMotor, args=(speed,))
+        print "Thread count: %d, Active: %s" % (threading.active_count(),
+                                                threading.current_thread())
+
         t.start()
 
     def StopThread(self):
         #Makes an existing while loop in thread exit
         self.isRunning=False
+                
         time.sleep(0.01)
-        #Set to true for next command
-        self.isRunning=True
 
     def Stop(self):
+        self.StopThread()
+        print "Stopping Motors"
         self.tBMotors.stopMotors()
+            
     
     def GetIfRunning(self):
         return(self.isRunning)
