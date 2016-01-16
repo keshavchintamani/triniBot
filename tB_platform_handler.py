@@ -62,6 +62,8 @@ class tBSensorCapture(threading.Thread):
 
 #Implementation of Two wheeled robot assuming LEFT motor is 1 and RIGHT Motor is 3
 # now includes steering control
+
+# refactor class name to 2WheelRobot
 class tBController():
     def __init__(self, leftMotorId, rightMotorId, steering):
         self.motors=[leftMotorId, rightMotorId, steering]
