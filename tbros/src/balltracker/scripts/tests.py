@@ -24,17 +24,17 @@ def listener():
     pub = rospy.Publisher('/tbmotionplanner/command', command, queue_size=10)
 
     directions = ["FORWARD", "REVERSE", "LEFT", "RIGHT", "STOP"]
+    priority =["LOW", "MEDIUM", "HIGH"]
+    speed =150
     while not rospy.is_shutdown():
         for i in directions:
-            publish_command("LOW", i, random.randint(0, 255) )
-            Time.sleep(2)
-        for i in directions:
-            publish_command("MEDIUM", i, random.randint(0, 255) )
-            Time.sleep(2)
-        for i in directions:
-            publish_command("HIGH", i, random.randint(0, 255) )
-            Time.sleep(2)
+            for j in priority:
+		print("{}:{}").format(i,j)
+                publish_command(j, i, random.randint(0, speed) )
+                Time.sleep(2)
 
 if __name__ == '__main__':
-    listener()
-    publish_command("LOW", "STOP", 0 )
+    try:
+        listener()
+    except rospy.ROSInterruptException:
+	pass
