@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor
 
 import time as Time
@@ -7,11 +5,10 @@ import atexit
 import threading
 import random as Random
 import Queue
-import serial
-from sense_hat import SenseHat
-from zmq_subscriber import zmqSub
+#from sense_hat import SenseHat
+#from zmq_subscriber import zmqSub
 import sys
-import picamera
+#import picamera
 import time
 from subprocess import call
 import subprocess

@@ -26,29 +26,29 @@ def BallDataCallBack(x, y, radius):
     #TODO Is this an artifact? - well thats for BallTracker to find out
 
     if Radius is not None:
-        logging.warning("Ball is at:", Px)
+        logging.warning("Ball is at:%f", Px)
         if not -0.1 <= Px <= 0.1 and doingSomething == False:
             t = threading.Thread(None, CenterBall, "Motor")
             t.start()
     Px_old = Px
 
-def CenterBall(lastdirection):
+def CenterBall():
 
     for i in range(5):
         doingSomething = True;
         if -0.1 <= Px <= 0.1:
             break
-        if Px - Px_old > 0:
-            logging.warning("Ball was last moved right")
+        #if Px - Px_old > 0:
+        #    logging.warning("Ball was last moved right")
             myRobot.Drive("RIGHT", 100)
             Time.sleep(2)
-        elif Px - Px_old < 0:
-            logging.warning("Ball was last moved left")
+        #elif Px - Px_old < 0:
+        #    logging.warning("Ball was last moved left")
             myRobot.Drive("LEFT", 100)
             Time.sleep(2)
-        else:
-            continue
-        myRobot.Stop()
+        #else:
+        #   continue
+        #myRobot.Stop()
     doingSomething=False
 
 if __name__ == "__main__":
