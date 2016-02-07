@@ -1,49 +1,56 @@
 
-from Robot_Controllers import TwoWheelRobot
-import time
-from pyfirmata import Arduino, util
+from tbMotorController import TwoWheelRobot
+from tbVision import BallTracker
+import threading
+import logging
 import time as Time
 import atexit
 
-board = Arduino('/dev/ttyUSB0')
-
-
-it = util.Iterator(board)
-it.start()
-
-board.analog[0].enable_reporting()
-
 myRobot = TwoWheelRobot()
-myLoop=True;
-def doSomething():
-    myRobot.Drive("REVERSE", 100)
-    Time.sleep(3)
-    myRobot.Stop()
-    myRobot.Drive("LEFT", 100)
-    Time.sleep(3)
 
-def onExit():
-    print "Exiting..."
-    myLoop=False;
-    board.exit()
-    myRobot.Stop()
+ImgWidth = 640
+ImgHeight = 480
+ballFound = False
+ballCentered = False
 
-atexit.register(onExit)
+Px = 0
+Py = 0
+Radius=0
+Px_old = 0
+doingSomething = False;
+
+def BallDataCallBack(x, y, radius):
+
+    Px = x
+    Radius = radius
+    #TODO Is this an artifact? - well thats for BallTracker to find out
+
+    if Radius is not None:
+        logging.warning("Ball is at:", Px)
+        if not -0.1 <= Px <= 0.1 and doingSomething == False:
+            t = threading.Thread(None, CenterBall, "Motor")
+            t.start()
+    Px_old = Px
+
+def CenterBall(lastdirection):
+
+    for i in range(5):
+        doingSomething = True;
+        if -0.1 <= Px <= 0.1:
+            break
+        if Px - Px_old > 0:
+            logging.warning("Ball was last moved right")
+            myRobot.Drive("RIGHT", 100)
+            Time.sleep(2)
+        elif Px - Px_old < 0:
+            logging.warning("Ball was last moved left")
+            myRobot.Drive("LEFT", 100)
+            Time.sleep(2)
+        else:
+            continue
+        myRobot.Stop()
+    doingSomething=False
 
 if __name__ == "__main__":
-    
-    try:
-        while myLoop:   
-            try:
-                voltage = float(board.analog[0].read())*5;
-                print "Pin: %f" % voltage
-            except TypeError:
-                print("Invalid");
-            if voltage > 1.5:       
-                myRobot.Stop()
-                doSomething()
-            else:
-                myRobot.Drive("FORWARD", 80)
-    except(KeyboardInterrupt, SystemExit):
-        print "Exiting"
-        onExit()
+    bt = BallTracker(BallDataCallBack, ImgWidth, ImgHeight, "RED")
+    bt.startBallTracker()

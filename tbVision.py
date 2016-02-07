@@ -19,7 +19,7 @@ class BallTracker(threading.Thread):
         else:
             print "Sorry Invalid color "
             return
-        self.W = width 
+        self.W = width
         self.H = height
         self.C = np.matrix([[0],[0],[0],[0]])
         self.callBack = cb;
@@ -28,7 +28,7 @@ class BallTracker(threading.Thread):
         print "Initializing camera"
         self.camera = cv2.VideoCapture(0)
         print "Success initializing camera; starting process"
-        
+
     def setupTransforms(self):
         P1 = (0, 0)
         P2 = (self.W,self.H)
@@ -128,8 +128,8 @@ class BallTracker(threading.Thread):
 
                     ballX, ballY = self.transform_coordinates(center[0], center[1])
                     self.callBack(ballX, ballY, int(radSum/len(pts)))
-                else:
-                    self.callBack(None, None, None)
+            else:
+                self.callBack(None, None, None)
 
             # show the frame to our screen
             cv2.imshow("Frame", frame)
@@ -144,23 +144,7 @@ class BallTracker(threading.Thread):
         self.camera.release()
         cv2.destroyAllWindows()
 
-def myBallTrackerCallBack(x,y, radius):
-    print "Recieved:", x, y, radius
 
 
-if __name__ == "__main__":
 
-    q = Queue()
-    bt = BallTracker(myBallTrackerCallBack, 640, 480, "RED")
-    bt.startBallTracker()
-    #while True:
-        #print "getting coords"
-        #res = q.get()
-        #print res
-        #cv2.imshow("Image", res["Frame"])
-        #print x, y
-    #   Time.sleep(0.5)
-    #bt.stopBallTracker()
-    
 
-    
