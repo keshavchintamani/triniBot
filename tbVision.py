@@ -55,6 +55,7 @@ class BallTracker(threading.Thread):
         self.isRunning=False
         Time.sleep(0.01)
         self.cleanUp()
+        print "Exiting BallTracker"
 
     def computeSpheres(self):
 
@@ -72,7 +73,7 @@ class BallTracker(threading.Thread):
 
         pts = deque(maxlen=BUFFER)
 
-        while True:
+        while self.isRunning==True:
             # grab the current frame
             (grabbed, frame) = self.camera.read()
             # if we are viewing a video and we did not grab a frame,
@@ -129,11 +130,9 @@ class BallTracker(threading.Thread):
 
                     ballX, ballY = self.transform_coordinates(center[0], center[1])
                     self.callBack(ballX, ballY, int(radSum/len(pts)))
-            else:
-                self.callBack(None, None, None)
 
             # show the frame to our screen
-            cv2.imshow("Frame", frame)
+            #cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
             # if the 'q' key is pressed, stop the loop
             if key == ord("q"):

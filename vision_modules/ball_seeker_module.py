@@ -26,7 +26,7 @@ class BallTracker(threading.Thread):
         self.isRunning = False;
         self.setupTransforms()
         print "Initializing camera"
-        self.camera = cv2.VideoCapture(0)
+        self.camera = cv2.VideoCapture(1)
         print "Success initializing camera; starting process"
         
     def setupTransforms(self):
@@ -151,7 +151,7 @@ def myBallTrackerCallBack(x,y, radius):
 if __name__ == "__main__":
 
     q = Queue()
-    bt = BallTracker(myBallTrackerCallBack, 640, 480, "RED")
+    bt = BallTracker(myBallTrackerCallBack, 320, 240, "RED")
     bt.startBallTracker()
     #while True:
         #print "getting coords"
