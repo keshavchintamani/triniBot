@@ -4,6 +4,8 @@ from tbVision import BallTracker
 import threading
 import logging
 import time as Time
+import Sense_hat as sense
+
 import atexit
 
 myRobot = TwoWheelRobot()

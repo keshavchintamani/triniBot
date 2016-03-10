@@ -3,6 +3,7 @@ import numpy as np
 import argparse
 import imutils
 import cv2
+
 import threading
 from Queue import Queue
 import time as Time
