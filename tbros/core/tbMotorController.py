@@ -63,19 +63,16 @@ class TwoWheelRobot():
         self.lock = threading.Lock()
 
     def RunMotor(self,speed):
-        #print "{}".format(int(speed[0]))
-        while(self.isRunning ==True):
-            self.tBMotors.runMotor(self.LEFT_MOTOR, speed)
-            self.tBMotors.runMotor(self.RIGHT_MOTOR, speed)
-            time.sleep(0.01)
-        print("Stopping current task...")
+        self.tBMotors.runMotor(self.LEFT_MOTOR, speed)
+        self.tBMotors.runMotor(self.RIGHT_MOTOR, speed)
+        time.sleep(0.01)
         
     def Drive(self,direction, speed):
         try:
             self.Directions.index(direction)
         except ValueError:
             print "Sorry, direction {} is not supported".format(direction)
-        self.StopThread()
+        self.Stop()
         if(direction==self.Directions[0]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
@@ -89,28 +86,20 @@ class TwoWheelRobot():
             self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
         self.isRunning= True;
-        t=threading.Thread(target=self.RunMotor, args=(speed,))
-        print "Thread count: %d, Active: %s" % (threading.active_count(),
-                                                threading.current_thread())
-
-        t.start()
+        self.RunMotor(speed)
 
     def StopThread(self):
         #Makes an existing while loop in thread exit
         self.isRunning=False
-                
         time.sleep(0.01)
 
     def Stop(self):
-        self.StopThread()
         print "Stopping Motors"
         self.tBMotors.stopMotors()
-            
-    
+
     def GetIfRunning(self):
         return(self.isRunning)
-    
-                                 
+
 #Wrapper and helper functions for 4 axis DC motor for Adafruit motorHat
 class MotorHatDCMotorController():
 

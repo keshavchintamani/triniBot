@@ -1,5 +1,0 @@
-You are using pip version 7.1.2, however version 8.0.2 is available.
-You should consider upgrading via the 'pip install --upgrade pip' command.
-imutils==0.3.3
-numpy==1.10.2
-wheel==0.24.0

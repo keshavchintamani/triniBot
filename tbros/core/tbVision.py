@@ -26,7 +26,7 @@ class BallTracker():
         self.isRunning = True;
         self.setupTransforms()
         print "Initializing camera"
-        self.camera = cv2.VideoCapture(0)
+        #self.camera = cv2.VideoCapture(0)
         print "Success initializing camera; starting process"
          #Get the HSV color based on user request
         #Default is blue
@@ -59,7 +59,7 @@ class BallTracker():
         self.isRunning=True
         #t = threading.Thread(target = self.computeSpheres)
         #t.start()
-        self.computeSpheres()
+        #self.computeSpheres()
         Time.sleep(0.01)
 
     def stopBallTracker(self):
@@ -67,16 +67,14 @@ class BallTracker():
         Time.sleep(0.01)
         self.cleanUp()
 
-    def computeSpheres(self):
+    def computeSpheres(self, image):
 
-        pts = deque(maxlen=BUFFER)
         #TODO Error checking for invalid camera
-
-        (grabbed, frame) = self.camera.read()
+        #(grabbed, frame) = self.camera.read()
         # resize the frame, blur it, and convert it to the HSV
         # color space
-        frame = imutils.resize(frame, self.W, self.H)
-        frame = cv2.flip(frame, 0)
+        frame = imutils.resize(image, self.W, self.H)
+        #frame = cv2.flip(frame, 0)
         blurred = cv2.GaussianBlur(frame, (11, 11), 0)
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         # construct a mask for the color "green", then perform
@@ -104,25 +102,12 @@ class BallTracker():
             if radius > 10:
                 # draw the circle and centroid on the frame,
                 # then update the list of tracked points
-                cv2.circle(frame, (int(x), int(y)), int(radius),
-                   (0, 255, 255), 2)
+                cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
                 cv2.circle(frame, center, 5, (0, 0, 255), -1)
-                pts.appendleft(radius)
-                radSum=pts[0]
-                for i in xrange(1, len(pts)):
-                    # if either of the tracked points are None, ignore
-                    # them
-                    if pts[i - 1] is None or pts[i] is None:
-                        continue
-                    # otherwise, compute the thickness of the line and
-                    # draw the connecting lines
-                    #thickness = int(np.sqrt(BUFFER / float(i + 1)) * 2.5)
-                    #cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
-                    radSum += pts[i]
-
                 ballX, ballY = self.transform_coordinates(center[0], center[1])
                 #self.callBack(ballX, ballY, int(radSum/len(pts)))
-                return (ballX, ballY, int(radSum/len(pts)))
+                #cv2.imshow("Frame", frame)
+                return (ballX, ballY, radius, frame)
         else:
             #self.callBack(None, None, None)
             return (None)
@@ -138,8 +123,9 @@ class BallTracker():
 
     def cleanUp(self):
         # cleanup the camera and close any open windows
-        self.camera.release()
-        cv2.destroyAllWindows()
+        print("nothing to clean up")
+        #self.camera.release()
+        #cv2.destroyAllWindows()
 
 
 

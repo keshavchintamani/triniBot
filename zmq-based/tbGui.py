@@ -1,8 +1,8 @@
-import socket
-import sys
-import atexit
 import Tkinter
+import atexit
 import subprocess
+import sys
+
 from zmq_publisher import zmqPub
 
 ip="localhost"
