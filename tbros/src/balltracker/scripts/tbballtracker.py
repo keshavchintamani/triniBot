@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import threading
-import rospy
-from tbVision import BallTracker
-import roslib
 import time as Time
+
+import rospy
+
+from tbros.core.tbVision import BallTracker
 
 ImgWidth = 640
 ImgHeight = 480
