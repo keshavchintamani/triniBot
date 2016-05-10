@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from sense_hat import SenseHat
 import time as Time
 import rospy
@@ -24,8 +26,8 @@ def Start():
         value.linear_acceleration.y = sense.get_accelerometer_raw()['y']
         value.linear_acceleration.z = sense.get_accelerometer_raw()['z']
         pose_pub.publish(value)
+        rospy.loginfo("Sending IMU data:%s", value)
         r.sleep()
 
 if __name__ == '__main__':
     Start()
-
