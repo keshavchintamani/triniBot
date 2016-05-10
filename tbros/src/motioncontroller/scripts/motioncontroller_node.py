@@ -5,16 +5,16 @@ import roslib
 roslib.load_manifest('balltracker')
 
 import time as Time
-#from tbMotorController import TwoWheelRobot
+from tbMotorController import TwoWheelRobot
 import threading
-#from tbAnalogSensors import SPIAnalog
+from tbAnalogSensors import SPIAnalog
 import random
 
 #import messages
 from balltracker.msg import command
 
 #Emulator class for the robot
-class TwoWheelRobot():
+class XXXWheelRobot():
     def __init__(self):
         self.LEFT_MOTOR=1
         self.RIGHT_MOTOR=3
@@ -52,7 +52,10 @@ def callback(data):
         worker_thread.join()
 
 def avoid_collisions():
+    global sensors
     obstacle_distance = sensors.readAdc(0)
+    if obstacle_distance >= 200:
+	robot.Stop()
     rospy.loginfo("Obstacle at: %s", obstacle_distance)
 
 def listener():
@@ -67,7 +70,7 @@ def listener():
         Time.sleep(1)
 
 robot = TwoWheelRobot()
-#sensors = SPIAnalog()
+sensors = SPIAnalog()
 if __name__ == '__main__':
     listener()
     robot.Stop()
