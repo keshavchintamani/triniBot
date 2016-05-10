@@ -11,13 +11,20 @@ def Start():
     #temp_pub = rospy.Publisher("/sensehat/temperature", Temperature, queue_size= 10)
     #humidity_pub = rospy.Publisher("/sensehat/humidity", RelativeHumidity, queue_size= 10)
     pose_pub = rospy.Publisher("/sensehat/pose", Imu, queue_size= 10)
-
+    r = rospy.Rate(10) # 10hz
     while not rospy.is_shutdown():
         value = Imu()
-        value.angular_velocity.x=sense.get_gyroscope()
-        pose_pub.publish()
-        Time.sleep(1)
-
+        value.angular_velocity.x = sense.get_gyroscope()['x']
+        value.angular_velocity.y = sense.get_gyroscope()['y']
+        value.angular_velocity.z = sense.get_gyroscope()['z']
+        value.orientation.x = sense.get_orientation_radians()['pitch']
+        value.orientation.y = sense.get_orientation_radians()['roll']
+        value.orientation.z = sense.get_orientation_radians()['yaw']
+        value.linear_acceleration.x = sense.get_accelerometer_raw()['x']
+        value.linear_acceleration.y = sense.get_accelerometer_raw()['y']
+        value.linear_acceleration.z = sense.get_accelerometer_raw()['z']
+        pose_pub.publish(value)
+        r.sleep()
 
 if __name__ == '__main__':
     Start()
