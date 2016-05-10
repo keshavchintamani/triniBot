@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from sense_hat import SenseHat
 import time as Time
 import rospy
@@ -14,15 +15,16 @@ def Start():
     r = rospy.Rate(10) # 10hz
     while not rospy.is_shutdown():
         value = Imu()
-        value.angular_velocity.x = sense.get_gyroscope()['x']
-        value.angular_velocity.y = sense.get_gyroscope()['y']
-        value.angular_velocity.z = sense.get_gyroscope()['z']
+        value.angular_velocity.x = sense.get_gyroscope()['pitch']
+        value.angular_velocity.y = sense.get_gyroscope()['roll']
+        value.angular_velocity.z = sense.get_gyroscope()['yaw']
         value.orientation.x = sense.get_orientation_radians()['pitch']
         value.orientation.y = sense.get_orientation_radians()['roll']
         value.orientation.z = sense.get_orientation_radians()['yaw']
         value.linear_acceleration.x = sense.get_accelerometer_raw()['x']
         value.linear_acceleration.y = sense.get_accelerometer_raw()['y']
         value.linear_acceleration.z = sense.get_accelerometer_raw()['z']
+	rospy.loginfo("Sending IMU data:%s", value)
         pose_pub.publish(value)
         r.sleep()
 
