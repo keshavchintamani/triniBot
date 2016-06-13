@@ -8,9 +8,9 @@
 <node pkg="image_proc" type="image_proc" name="image_rectifier"  machine="raspberrypi" respawn="true" output="screen" >
 	<rosparam ns="mycamera" />
 </node>
-<node pkg="image_view" type="image_view" name="tb_imageviewer"  machine="000953-WS.local" respawn="true" output="screen">
+<!--<node pkg="image_view" type="image_view" name="tb_imageviewer"  machine="000953-WS.local" respawn="true" output="screen">
 	<remap from="/image" to="/mycamera/image_raw" />
-</node>
+</node> -->
 <node pkg="motioncontroller" type="motioncontroller_node.py" name="remote_robot_server" machine="raspberrypi" respawn="false" output="screen" />
 <node pkg="balltracker" type="tests.py" name="command_tester"  machine="000953-WS.local" respawn="true" output="screen" />
 <node pkg="keyboard" type="keyboard" name="teleop_keystrokes"  machine="000953-WS.local" respawn="true" output="screen" />
