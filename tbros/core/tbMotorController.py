@@ -1,55 +1,9 @@
 from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor
+from tbAnalogSensors import SPIAnalog
 
 import time as Time
-import atexit
-import threading
-import random as Random
-import Queue
-#from sense_hat import SenseHat
-#from zmq_subscriber import zmqSub
-import sys
-#import picamera
-import time
-from subprocess import call
-import subprocess
 
-
-#A thread that reads encoder data from Arduino over Serial
-class tBEncoderCapture(threading.Thread):
-
-    def __init__(self, threadID, q):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.q = q
-        #self.Serial = serial.Serial('/dev/ttyUSB0', 9600);
-        Random.random()
-        Random.seed()
-
-    def run(self):
-        #Get
-        while (True):
-            #line = self.Serial.readline()
-            line = Random.randint(1,10)
-            self.q.put(line)
-            Time.sleep(0.01)
-
-#A thread that reads encoder data from Arduino over Serial
-class tBSensorCapture(threading.Thread):
-
-    def __init__(self, threadID, q, senseHat):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.q = q
-        self.senseHat=senseHat
-
-    def run(self):
-        #Get
-        while (True):
-            print("Getting sensors")
-
-#Implementation of Two wheeled robot assuming LEFT motor is 1 and RIGHT Motor is 3
-# now includes steering control
-
+# Implementation of Two wheeled robot assuming LEFT motor is 1 and RIGHT Motor is 3
 # refactor class name to 2WheelRobot
 # Left wheel is motor 1
 # Right wheel is motor 3
@@ -59,46 +13,61 @@ class TwoWheelRobot():
         self.RIGHT_MOTOR=3
         self.Directions = ["FORWARD", "REVERSE", "LEFT", "RIGHT"]
         self.tBMotors = MotorHatDCMotorController([self.LEFT_MOTOR, self.RIGHT_MOTOR], 0x60)
-        self.isRunning=False
-        self.lock = threading.Lock()
+        self.pose = 0;
+        self.obstacle_sensor = SPIAnalog()
 
-    def RunMotor(self,speed):
-        self.tBMotors.runMotor(self.LEFT_MOTOR, speed)
-        self.tBMotors.runMotor(self.RIGHT_MOTOR, speed)
-        time.sleep(0.01)
-        
-    def Drive(self,direction, speed):
+    def Drive(self,direction, speed, tangle):
+
         try:
             self.Directions.index(direction)
         except ValueError:
             print "Sorry, direction {} is not supported".format(direction)
         self.Stop()
+        turning_mode = True
         if(direction==self.Directions[0]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
+            turning_mode = False
         elif(direction==self.Directions[1]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
+            turning_mode = False
         elif(direction==self.Directions[2]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
+            
         elif(direction==self.Directions[3]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
-        self.isRunning= True;
-        self.RunMotor(speed)
+            
+        self.tBMotors.runMotor(self.LEFT_MOTOR, speed)
+        self.tBMotors.runMotor(self.RIGHT_MOTOR, speed)
 
-    def StopThread(self):
-        #Makes an existing while loop in thread exit
-        self.isRunning=False
-        time.sleep(0.01)
+        if turning_mode == True:
+            threshold = 0.1
+            startangle= float(self.currentangle)
+            print "Target angle: %.2f" % tangle
+            print "Start angle: %.2f" % startangle
+            reached=False
+            while(reached == False):
+                diff = abs(self.currentangle - startangle)
+                print "Current difference: %.2f" % diff
+                if  diff >= tangle:
+                    print "Angle reached: %.2f Stopping motors" % diff
+                    Time.sleep(2)
+                    self.Stop()
+                    reached = True
 
     def Stop(self):
         print "Stopping Motors"
         self.tBMotors.stopMotors()
 
-    def GetIfRunning(self):
-        return(self.isRunning)
+    def setPose(self, current):
+        self.currentangle = current
+        
+
+
+
 
 #Wrapper and helper functions for 4 axis DC motor for Adafruit motorHat
 class MotorHatDCMotorController():
