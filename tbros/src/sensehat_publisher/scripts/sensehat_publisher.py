@@ -27,17 +27,7 @@ def Start():
         gyro.linear_acceleration.y = sense.get_accelerometer_raw()['y']
         gyro.linear_acceleration.z = sense.get_accelerometer_raw()['z']
         #rospy.loginfo("Sending IMU data:%s", gyro)
-        pose_pub.publish(gyro)
-
-        compass= MagneticField()
-        # magnetic intensity of the axis in microteslas
-        compass.magnetic_field.x = sense.get_compass_raw()['x']
-        compass.magnetic_field.y = sense.get_compass_raw()['y']
-        compass.magnetic_field.z = sense.get_compass_raw()['z']
-        compass_pub.publish(compass)
-        #rospy.loginfo("Sending magnetic data:%s", compass)
         r.sleep()
 
 if __name__ == '__main__':
     Start()
-

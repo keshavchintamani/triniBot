@@ -44,7 +44,7 @@ def lookForBall():
     for i in range (0, total):
         if -0.2 <= ball_X <=0.2:
             rospy.loginfo("Found ball. exiting search")
-            robot.Stop()
+            publish_command("HIGH", "STOP", 0)
             continue
         if (i % 2 == 0):
             Direction = "LEFT"
