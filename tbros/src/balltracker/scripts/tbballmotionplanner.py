@@ -60,7 +60,7 @@ def takeEvasiveAction():
     publish_command("HIGH", "STOP", 0)
     # while(True):
     #     Time.sleep(0.25)
-    #     robot.Drive("LEFT", 80)
+    #     robot.drive("LEFT", 80)
     #     distance = random.randrange(0, 600, 20)#sensors.readAdc(0)
     #     if (distance > 400):
     #         break

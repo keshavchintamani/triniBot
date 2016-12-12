@@ -79,7 +79,7 @@ class tBController():
             self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
             self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
             time.sleep(0.01)
-        print("Exiting Drive Forward")
+        print("Exiting drive Forward")
                                                 
     def DriveBackward(self,speed):
         self.tBMotors.setDirection(LEFT_MOTOR, "REVERSE")
@@ -88,7 +88,7 @@ class tBController():
             self.tBMotors.runMotor(LEFT_MOTOR, int(speed[0]))
             self.tBMotors.runMotor(RIGHT_MOTOR, int(speed[0]))
             time.sleep(0.01)
-        print("Exiting Drive Backward")
+        print("Exiting drive Backward")
 
     def steerLeft(self,speed):
 

@@ -23,7 +23,7 @@ def command_callback(data):
     if data.direction == "STOP":
         robot.Stop()
     else:
-        worker_thread = threading.Thread(name = "motorcontroller_worker", target = robot.Drive, args = [str(data.direction), int(data.speed), float(data.angle)])
+        worker_thread = threading.Thread(name = "motorcontroller_worker", target = robot.drive, args = [str(data.direction), int(data.speed), float(data.angle)])
         worker_thread.start()
         worker_thread.join()
 

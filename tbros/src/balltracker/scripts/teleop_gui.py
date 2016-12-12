@@ -18,7 +18,6 @@ class robotGUI_tk(Tkinter.Tk):
         self.initialize()
         self.pub = rospy.Publisher('/tbmotionplanner/command', command, queue_size=10)
 
-
     def initialize(self):
         self.grid()
 
@@ -29,7 +28,6 @@ class robotGUI_tk(Tkinter.Tk):
 
         labelAngle = Tkinter.Label(self, text = u"Angle", anchor="w", fg="white", bg ="blue")
         labelAngle.grid(column=0, row=1, sticky='EW')
-
 
         self.speedEntryVar = Tkinter.StringVar(value="100")
 
