@@ -5,7 +5,7 @@ import atexit
 #if platform.system() is not 'Darwin':
 
 #Very Pi imports
-#from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor
+from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor
 #from tbAnalogSensors.py import SPIAnalog
 import time as Time
 import atexit
@@ -50,7 +50,7 @@ class SignalHandler:
 class MotorHatDCMotorController():
 
     def __init__(self, motors, i2caddress):
-
+	global Adafruit_MotorHat
         self.mh = Adafruit_MotorHAT(addr=i2caddress)
         allmotors=[1,2,3,4]
         self.user_motors=motors
@@ -159,10 +159,13 @@ class TwoWheelRobot():
             self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
 
+        #Exit an active motor loop if running by calling stopper.set()
+        self.stopper.set()
+        time.sleep(0.05)
+        self.stopper.clear()
         # Now that everything is set, run the two motors on a new thread
         driveThread = threading.Thread(group=None, target = self.linearmotioncontrol, name="current-motor-thread", args = [int(speed)])
         driveThread.start()
-
     #Turns the robot
     def turn(self, direction, angvel):
 
@@ -179,8 +182,12 @@ class TwoWheelRobot():
             self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
 
+        #self.Cleanup()
+        #self.Stop()
+
         # Now that everything is set, run the two motors on a new thread
         driveThread = threading.Thread(group=None, target=self.angularmotioncontrol, name="current-motor-thread", args=[int(speed)])
+        driveThread.join()
         driveThread.start()
 
 
@@ -190,107 +197,52 @@ class TwoWheelRobot():
 
     def linearmotioncontrol(self, target_speed):
 
-        dT = 0.01
-        if str(self.mode) == "PID":
-            filename = "log_" + str(self.mode)+"_" + time.strftime("%H_%M_%S")+".txt"
-            logfile = open(filename, "w")
-            Kp = 0.1
-            Kd = 0.1
-            Ki = 0.1
-            error_prior = 0
-            integral = 0
-            while not self.stopper.is_set():
-                startT = time.time()
-                current_speed = self.GetSpeed()
-                error = target_speed - (abs(current_speed[0]) + abs(current_speed[1])) / 2
-                integral = integral + (error*dT)
-                derivative = (error - error_prior)/dT
-                output = Kp * error + Ki * integral + Kp * derivative
-                #TODO Implement mapping between output and PWM
-                self.tBMotors.runMotor(self.LEFT_MOTOR, output)
-                self.tBMotors.runMotor(self.RIGHT_MOTOR, output)
-                #dT = time.time() - startT
-                time.sleep(dT)
-                error_prior = error
-                logstring = str(dT) + "\t" + str(current_speed[0]) + "\t" + str(current_speed[1]) + "\t" + str(error) + "\t" + str(integral) + "\t" + str(derivative) + "\t" + str(output) +"\n"
-                logfile.write(logstring)
-            logger.info("Exiting the PID loop")
-            logfile.close()
+        filename = "log_" + str(self.mode)+"_" + time.strftime("%H_%M_%S")+".txt"
+        logfile = open(filename, "w")
+        dt = 0.01
+        integral_l = integral_r= 0
+        Kp=0.1
+        Ki=0.1
+        while not self.stopper.is_set():
+            current_speed = self.GetSpeed()
+            error_l = target_speed - current_speed[0]
+            error_r = target_speed - current_speed[1]
+            pwm_l = (Kp*error_l) + (Ki * integral_l)
+            pwm_r = (Kp*error_r) + (Ki * integral_r)
+            logger.info("target: %s - current_left: %s - current_right: %s", str(target_speed), str(current_speed[0]), str(current_speed[1]))
 
-        elif str(self.mode) == "DIRECT":
-            filename = "log_" + str(self.mode)+"_" + time.strftime("%H_%M_%S")+".txt"
-            logfile = open(filename, "w")
-            w1_pwm = 50
-            w2_pwm = 50
-            threshold = 0.02 #Acceptable error threshold
-            while not self.stopper.is_set():
-                current_speed = self.GetSpeed()
-                w1_error = (target_speed - abs(current_speed[0]))/target_speed
-                w2_error = (target_speed - abs(current_speed[1]))/target_speed
-                if not (w1_error <=threshold or w1_error >= -threshold):
-                    w1_pwm = w1_pwm + 1
-                    self.tBMotors.runMotor(self.LEFT_MOTOR, w1_pwm)
-                if not (w2_error <= threshold or w2_error >= -threshold):
-                    w2_pwm = w2_pwm + 1
-                    self.tBMotors.runMotor(self.RIGHT_MOTOR, w2_pwm)
-                logstring = str(target_speed) + "\t" + str(current_speed[0]) + "\t" + str(current_speed[1]) + "\n"
-                logfile.write(logstring)
-            logger.info("Exiting the DIRECT loop")
-            logfile.close()
+            if (pwm_l > 100):
+                pwm_l = 100
+            elif (pwm_l < -100):
+                pwm_l = -100
+            else:
+                integral_l = integral_l + (error_l*dt)
+
+            if (pwm_r > 100):
+                pwm_r = 100
+            elif (pwm_r < -100):
+                pwm_r = -100
+            else:
+                integral_r = integral_r + (error_r*dt)
+            logstring = str(Kp)+"\t"+str(Ki)+"\t"+str(target_speed) + "\t" + \
+            str(current_speed[0]) + "\t" + str(current_speed[1])
+            
+            logfile.write(logstring)
+            pwm_l = self.scale(pwm_l)
+            pwm_r = self.scale(pwm_r)
+            self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
+            self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
+            time.sleep(dt)
+
+        logger.info("Exiting the DIRECT loop")
+        logfile.close()
+
+    def scale(self, value):
+        return ((255-0)*(value-(-100))/(100-(-100)) + 0)
 
     def angularmotioncontrol(self, target_speed):
-
-        dT = 0.01
-        if str(self.mode) == "PID":
-            filename = "log_" + str(self.mode) + "_" + time.strftime("%H_%M_%S") + ".txt"
-            logfile = open(filename, "w")
-            Kp = 1
-            Kd = 0
-            Ki = 0
-            error_prior = 0
-            integral = 0
-
-            while not self.stopper.is_set():
-                startT = time.time()
-                current_speed = self.GetSpeed()
-                error = target_speed - (abs(current_speed[0]) + abs(current_speed[1])) / 2
-                integral = integral + (error * dT)
-                derivative = (error - error_prior) / dT
-                output = Kp * error + Ki * integral + Kp * derivative
-                # TODO Implement mapping between output and PWM
-                self.tBMotors.runMotor(self.LEFT_MOTOR, output)
-                self.tBMotors.runMotor(self.RIGHT_MOTOR, output)
-                # dT = time.time() - startT
-                error_prior = error
-                time.sleep(dT)
-                logstring = str(dT) + "\t" + str(current_speed[0]) + "\t" + str(current_speed[1]) + "\t" + str(
-                    error) + "\t" + str(integral) + "\t" + str(derivative) + "\t" + str(output) + "\n"
-                logfile.write(logstring)
-            logger.info("Exiting the PID loop")
-            logfile.close()
-
-        elif str(self.mode) == "DIRECT":
-            filename = "log_" + str(self.mode) + "_" + time.strftime("%H_%M_%S") + ".txt"
-            logfile = open(filename, "w")
-            w1_pwm = 50
-            w2_pwm = 50
-            # Continue from here: Independent wheel speed control
-            threshold = 0.05  # Tolerable error threshold
-            while not self.stopper.is_set():
-                current_speed = self.GetSpeed()
-                # Calculate the error percentage
-                error = (target_speed - (abs(current_speed[0])+abs(current_speed[1]))/2)/ target_speed
-                # TODO Find an isinrange() function
-                if not error >= 0 or error <= threshold:
-                    w1_pwm = w1_pwm + 1
-                    w2_pwm = w2_pwm + 1
-                    self.tBMotors.runMotor(self.LEFT_MOTOR, w1_pwm)
-                    self.tBMotors.runMotor(self.RIGHT_MOTOR, w2_pwm)
-                logstring = str(target_speed) + "\t" + str(dT) + "\\t" + str(current_speed[0]) + "\\t" + str(current_speed[1]) + "\\n"
-                logfile.write(logstring)
-            logger.info("Exiting the DIRECT loop")
-            logfile.close()
-
+        return (100)
+                
     def Stop(self):
         logger.info("Stopping Motors")
         self.tBMotors.stopMotors()
@@ -330,20 +282,27 @@ def main():
     signal.signal(signal.SIGINT, handler)
 
     #Direct drive Tests: Power bot at max PWM for 10 seconds and record velocity
-    speeds = [0, 50, 100, 150, 200, 255]
+    speeds = [200, 500, 1200]
     for i in speeds:
-        logger.info("Driving forward at %d",int(sys.argv[1]))
-        myrobot.drive("FORWARD", int(sys.argv[1]))
-        time.sleep(5)
+        logger.info("Driving forward at %d", i)
+        myrobot.drive("FORWARD", int(i))
+        time.sleep(10)
+        myrobot.Cleanup()
+    myrobot.Stop()
 
-    speeds = [0, 50, 100, 150, 200, 255]
-    for i in speeds:
-        logger.info("Driving forward at %d", int(sys.argv[1]))
-        myrobot.turn("LEFT", int(sys.argv[1]))
-        time.sleep(5)
-    logger.info("Look I got here!")
+    #speeds = [0, 50, 100, 150, 200, 255]
+    #for i in speeds:
+    #    logger.info("Driving forward at %d", int(i))
+    #    myrobot.turn("LEFT", int(i))
+    #    time.sleep(5)
+    #logger.info("Look I got here!")
     myrobot.Cleanup()
     myrobot.Stop()
 
+def exithandler():
+    myrobot.Cleanup()
+    myrobot.Stop() 
+
 if __name__ == '__main__':
+    atexit.register(exithandler)
     main()
