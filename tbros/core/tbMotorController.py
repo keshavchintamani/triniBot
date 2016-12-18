@@ -125,91 +125,68 @@ class tBEncoderCapture(threading.Thread):
                 pass
         logger.info("Exiting encoder thread now...")
 
-#Implementation of Two wheeled robot assuming LEFT motor is 1 and RIGHT Motor is 3
-class TwoWheelRobot():
+#Documentation
+#TrackedTriniBot is a specialized tracked platform using the 150:1 micrometal gearmotors
+#It assumes certain dimensions of the wheels for its odometry
+#Changes to the wheels or transmision should be reflected in the parameters
+class TrackedTrinibot():
 
-    def __init__(self,stopper, queue, mode = "DIRECT"):
+    def __init__(self,stopper, queue):
 
         self.LEFT_MOTOR = 1
         self.RIGHT_MOTOR = 3
         self.Directions = ["FORWARD", "REVERSE"]
         self.Turns = ["CLOCKWISE", "COUNTERCLOCKWISE"]
         self.tBMotors = MotorHatDCMotorController([self.LEFT_MOTOR, self.RIGHT_MOTOR], 0x60)
-        self.mode = mode
         self.stopper = stopper
         self.q = queue
+        self.isRunning = False
 
-        if not (self.mode == 'DIRECT' or self.mode  == 'PID'):
-            logger.error("Mode %s is not supported...", self.mode)
-            exit()
-        logger.info("Starting robot in %s mode", self.mode)
-
-    def drive(self, direction, speed):
-
+    def drive(self, direction, target_speed, target_dist = 20000):
+        self.Stop()
         try:
             self.Directions.index(direction)
         except ValueError:
             logger.error("Sorry, direction %s is not supported", direction)
-            return
-
         if(direction==self.Directions[0]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
         elif(direction==self.Directions[1]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
-
-        #Exit an active motor loop if running by calling stopper.set()
-        self.stopper.set()
-        time.sleep(0.05)
-        self.stopper.clear()
-        # Now that everything is set, run the two motors on a new thread
-        driveThread = threading.Thread(group=None, target = self.linearmotioncontrol, name="current-motor-thread", args = [int(speed)])
-        driveThread.start()
-    #Turns the robot
-    def turn(self, direction, angvel):
-
-        try:
-            self.Turns.index(direction)
-        except ValueError:
-            logger.error("Sorry, direction %s is not supported", direction)
-            return
-
-        if (direction == self.Turns[0]):
-            self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
-            self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
-        elif (direction == self.Turns[1]):
-            self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
-            self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
-
-        #self.Cleanup()
-        #self.Stop()
+        if(self.isRunning == True):
+            logger.info("Motor was running so stopping it by changing flag..")
+            self.isRunning = False
+        self.isRunning = True
 
         # Now that everything is set, run the two motors on a new thread
-        driveThread = threading.Thread(group=None, target=self.angularmotioncontrol, name="current-motor-thread", args=[int(speed)])
-        driveThread.join()
+        driveThread = threading.Thread(group=None, target=self.speedcontrol, name="current-motor-thread", args=[int(target_speed),float(target_dist) ])
         driveThread.start()
 
+    def speedcontrol(self, target_speed, target_distance):
 
-    def GetSpeed(self):
-        if isinstance(self.q, Queue.Queue) is True:
-            return self.q.get()
-
-    def linearmotioncontrol(self, target_speed):
-
-        filename = "log_" + str(self.mode)+"_" + time.strftime("%H_%M_%S")+".txt"
+        filename = "log_" + time.strftime("%Hss_%M_%S")+".txt"
         logfile = open(filename, "w")
         dt = 0.01
         integral_l = integral_r= 0
         Kp=0.1
         Ki=0.1
-        while not self.stopper.is_set():
+        odo = 0
+        wheel_mm_deg=0.340339 #in mm
+        last_speed_l=last_speed_r=0
+        while self.isRunning == True and not self.stopper.is_set():
             current_speed = self.GetSpeed()
-            error_l = target_speed - current_speed[0]
-            error_r = target_speed - current_speed[1]
+            #Degrees travelled in meteres since last pass
+            odo = odo + (wheel_mm_deg/1000)*(last_speed_l*dt+ last_speed_r*dt)/2
+            logger.info("DistanceTravelled: %f", odo)
+            if odo >= target_distance:
+                logger.info("Wheel_speed:%d - target:%fM - desired:%fM", int(current_speed[0]), float(odo), float(target_distance))
+                self.Cleanup()
+                self.Stop()
+            error_l = target_speed - 2*int(current_speed[0])
+            error_r = target_speed - 2*int(current_speed[1])
             pwm_l = (Kp*error_l) + (Ki * integral_l)
             pwm_r = (Kp*error_r) + (Ki * integral_r)
-            logger.info("target: %s - current_left: %s - current_right: %s", str(target_speed), str(current_speed[0]), str(current_speed[1]))
 
             if (pwm_l > 100):
                 pwm_l = 100
@@ -225,26 +202,32 @@ class TwoWheelRobot():
             else:
                 integral_r = integral_r + (error_r*dt)
             logstring = str(Kp)+"\t"+str(Ki)+"\t"+str(target_speed) + "\t" + \
-            str(current_speed[0]) + "\t" + str(current_speed[1])
-            
+            str(current_speed[0]) + "\t" + str(current_speed[1]) + "\t" + \
+            str(target_distance) + "\t" + str(odo) + "\n"
+
             logfile.write(logstring)
             pwm_l = self.scale(pwm_l)
             pwm_r = self.scale(pwm_r)
             self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
             self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
-            time.sleep(dt)
 
-        logger.info("Exiting the DIRECT loop")
+            last_speed_l = float(current_speed[0])
+            last_speed_r = float(current_speed[1])
+            time.sleep(dt)
+        logger.info("New command received... exiting the control loop")
         logfile.close()
+
+    def GetSpeed(self):
+        if isinstance(self.q, Queue.Queue) is True:
+            return self.q.get()
 
     def scale(self, value):
         return ((255-0)*(value-(-100))/(100-(-100)) + 0)
 
-    def angularmotioncontrol(self, target_speed):
-        return (100)
-                
     def Stop(self):
         logger.info("Stopping Motors")
+        self.isRunning = False
+        time.sleep(0.01)
         self.tBMotors.stopMotors()
 
     def Cleanup(self):
@@ -266,13 +249,13 @@ def main():
 
     Q = Queue.Queue()
     #Initialize the stopper
-    Stopper = threading.Event() 
+    Stopper = threading.Event()
     Stopper.clear()
     threads = []
 
     #try:
     feedbackProvider = tBEncoderCapture( Stopper, Q)
-    myrobot = TwoWheelRobot(Stopper, Q,  mode = "DIRECT")
+    myrobot = TrackedTrinibot(Stopper, Q)
     feedbackProvider.start()
     threads.append(feedbackProvider)
     threads.append(myrobot)
@@ -282,13 +265,12 @@ def main():
     signal.signal(signal.SIGINT, handler)
 
     #Direct drive Tests: Power bot at max PWM for 10 seconds and record velocity
-    speeds = [200, 500, 1200]
-    for i in speeds:
-        logger.info("Driving forward at %d", i)
-        myrobot.drive("FORWARD", int(i))
-        time.sleep(10)
-        myrobot.Cleanup()
-    myrobot.Stop()
+    #for i in speeds:
+    logger.info("Driving forward at speed: %d and distance %f", int(sys.argv[1]),float(sys.argv[2]))
+    myrobot.drive("FORWARD", int(sys.argv[1]),float(sys.argv[2]))
+    time.sleep(10)
+        #myrobot.Cleanup()
+        #myrobot.Stop()
 
     #speeds = [0, 50, 100, 150, 200, 255]
     #for i in speeds:
@@ -300,9 +282,10 @@ def main():
     myrobot.Stop()
 
 def exithandler():
-    myrobot.Cleanup()
-    myrobot.Stop() 
-
+    #global myrobot
+    #myrobot.Cleanup()
+    #myrobot.Stop()
+    print "Goodbye!"
 if __name__ == '__main__':
     atexit.register(exithandler)
     main()
