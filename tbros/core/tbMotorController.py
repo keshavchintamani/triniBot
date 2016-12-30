@@ -108,6 +108,12 @@ class tBEncoderCapture(threading.Thread):
         except (IOError, ValueError):
             logger.error("Cannot open serial device: %s", devid)
             raise IOError
+    
+    #Send an r to the arduino to reset the odo
+    def reset(self):
+        time.sleep(0.01)
+        logger.info("Resetting the encoder counter...")
+        self.Serial.write('r')
 
     def run(self):
         while not self.stopper.is_set():
@@ -131,8 +137,10 @@ class tBEncoderCapture(threading.Thread):
 #Changes to the wheels or transmision should be reflected in the parameters
 class TrackedTrinibot():
 
-    def __init__(self,stopper, queue):
+    def __init__(self,stopper, queue, encoderthread, mode ="pid"):
 
+        self.mode = mode
+        self.encoderThread = encoderthread
         self.LEFT_MOTOR = 1
         self.RIGHT_MOTOR = 3
         self.Directions = ["FORWARD", "REVERSE"]
@@ -141,6 +149,9 @@ class TrackedTrinibot():
         self.stopper = stopper
         self.q = queue
         self.isRunning = False
+        #Give Kp and Ki some initial values 
+        self.Ki = 0.1
+        self.Kp = 0.1
 
     def drive(self, direction, target_speed, target_dist = 20000):
         self.Stop()
@@ -157,67 +168,93 @@ class TrackedTrinibot():
         if(self.isRunning == True):
             logger.info("Motor was running so stopping it by changing flag..")
             self.isRunning = False
+            time.sleep(0.01)
         self.isRunning = True
-
+        self.speedcontrol(target_speed, target_dist)
         # Now that everything is set, run the two motors on a new thread
-        driveThread = threading.Thread(group=None, target=self.speedcontrol, name="current-motor-thread", args=[int(target_speed),float(target_dist) ])
-        driveThread.start()
+        #driveThread = threading.Thread(group=None, target=self.speedcontrol, name="current-motor-thread", args=[int(target_speed),float(target_dist) ])
+        #driveThread.start()
 
-    def speedcontrol(self, target_speed, target_distance):
+    def setKp(self, kp):
+            self.Kp = float(kp)
+    def setKi(self, ki):
+            self.Ki = float(ki)
+
+    def speedcontrol(self, target_speed, target_distance=200000):
 
         filename = "log_" + time.strftime("%Hss_%M_%S")+".txt"
         logfile = open(filename, "w")
         dt = 0.01
         integral_l = integral_r= 0
-        Kp=0.1
-        Ki=0.1
-        odo = 0
-        wheel_mm_deg=0.340339 #in mm
+        #Kp=0.1
+        #Ki=0.1
+        dist_travelled =last_dist_travelled= 0
+        old_pwm_r = old_pwm_l = 0
+        pulse_revolution=1800
+        cm_pulse=0.006806
+        deg_pulse=0.2
         last_speed_l=last_speed_r=0
-        while self.isRunning == True and not self.stopper.is_set():
-            current_speed = self.GetSpeed()
-            #Degrees travelled in meteres since last pass
-            odo = odo + (wheel_mm_deg/1000)*(last_speed_l*dt+ last_speed_r*dt)/2
-            logger.info("DistanceTravelled: %f", odo)
-            if odo >= target_distance:
-                logger.info("Wheel_speed:%d - target:%fM - desired:%fM", int(current_speed[0]), float(odo), float(target_distance))
-                self.Cleanup()
-                self.Stop()
-            error_l = target_speed - 2*int(current_speed[0])
-            error_r = target_speed - 2*int(current_speed[1])
-            pwm_l = (Kp*error_l) + (Ki * integral_l)
-            pwm_r = (Kp*error_r) + (Ki * integral_r)
+        #Reset the counter through the encoder thread
+        self.encoderThread.reset()
+        #TODO Update to read the second encoder
+        if self.mode == "pid":
+            logger.info("mode=%s Kp = %f - Ki = %f", self.mode, self.Kp, self.Ki) 
+            while self.isRunning == True and not self.stopper.is_set():
+                current_odo = self.GetOdo()
+                #Degrees travelled in centimeteresi since last pass
+                dist_travelled = int(current_odo[1])
+                odo = abs(dist_travelled)*cm_pulse
+                current_speed = 0.2*(abs(dist_travelled - last_dist_travelled))/dt
+                logger.info("odo: %f\t deg/s:%f", odo, current_speed)
+                if odo >= target_distance:
+                        self.isRunning = False
+                error_l = target_speed - current_speed
+                error_r = target_speed - current_speed
+                pwm_l = (self.Kp*error_l) + (self.Ki * integral_l)
+                pwm_r = (self.Kp*error_r) + (self.Ki * integral_r)
 
-            if (pwm_l > 100):
-                pwm_l = 100
-            elif (pwm_l < -100):
-                pwm_l = -100
-            else:
-                integral_l = integral_l + (error_l*dt)
+                if (pwm_l > 100):
+                    pwm_l = 100
+                elif (pwm_l < -100):
+                    pwm_l = -100
+                else:
+                    integral_l = integral_l + (error_l*dt)
 
-            if (pwm_r > 100):
-                pwm_r = 100
-            elif (pwm_r < -100):
-                pwm_r = -100
-            else:
-                integral_r = integral_r + (error_r*dt)
-            logstring = str(Kp)+"\t"+str(Ki)+"\t"+str(target_speed) + "\t" + \
-            str(current_speed[0]) + "\t" + str(current_speed[1]) + "\t" + \
-            str(target_distance) + "\t" + str(odo) + "\n"
+                if (pwm_r > 100):
+                    pwm_r = 100
+                elif (pwm_r < -100):
+                    pwm_r = -100
+                else:
+                    integral_r = integral_r + (error_r*dt)
+                
+                
+                logstring = str(self.Kp)+"\t"+str(self.Ki)+"\t"+str(target_speed) + "\t" + \
+                    str(current_odo) + "\t" + str(current_speed) + "\t" + \
+                    str(target_distance) + "\t" + str(odo) + "\n"
 
-            logfile.write(logstring)
-            pwm_l = self.scale(pwm_l)
-            pwm_r = self.scale(pwm_r)
-            self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
-            self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
+                logfile.write(logstring)
+                pwm_l = self.scale(pwm_l)
+                pwm_r = self.scale(pwm_r)
 
-            last_speed_l = float(current_speed[0])
-            last_speed_r = float(current_speed[1])
-            time.sleep(dt)
-        logger.info("New command received... exiting the control loop")
+                if(not pwm_l == old_pwm_l): 
+                    self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
+                if (not pwm_r == old_pwm_r):
+                    self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
+                last_dist_travelled = dist_travelled
+                old_pwm_l = pwm_l
+                old_pwm_r = pwm_r
+                last_speed_l = float(current_speed)
+                last_speed_r = float(current_speed)
+                time.sleep(dt)
+        else:
+            self.tBMotors.runMotor(self.LEFT_MOTOR, target_speed)
+            self.tBMotors.runMotor(self.RIGHT_MOTOR, target_speed)
+                #logger.info("New command received... exiting the control loop")
+        self.Stop()
+        logger.info("target:%fM - desired:%fM", float(odo), float(target_distance))
         logfile.close()
 
-    def GetSpeed(self):
+    def GetOdo(self):
         if isinstance(self.q, Queue.Queue) is True:
             return self.q.get()
 
@@ -233,7 +270,7 @@ class TrackedTrinibot():
     def Cleanup(self):
         self.stopper.set()
 
-def main():
+def main_automation():
     global myrobot, logger
 
     logger = logging.getLogger('encoder')
@@ -255,7 +292,7 @@ def main():
 
     #try:
     feedbackProvider = tBEncoderCapture( Stopper, Q)
-    myrobot = TrackedTrinibot(Stopper, Q)
+    myrobot = TrackedTrinibot(Stopper, Q, feedbackProvider)
     feedbackProvider.start()
     threads.append(feedbackProvider)
     threads.append(myrobot)
@@ -266,20 +303,60 @@ def main():
 
     #Direct drive Tests: Power bot at max PWM for 10 seconds and record velocity
     #for i in speeds:
-    logger.info("Driving forward at speed: %d and distance %f", int(sys.argv[1]),float(sys.argv[2]))
-    myrobot.drive("FORWARD", int(sys.argv[1]),float(sys.argv[2]))
-    time.sleep(10)
-        #myrobot.Cleanup()
-        #myrobot.Stop()
+    KP=[0.1, 0.2, 0.4, 0.8]#0.5, 0.6, 0.7, 0.8, 0.9]
+    KI=[0.1, 0.2, 0.4, 0.8]# 0.5, 0.6, 0.7, 0.8, 0.9]
+    for Kp in KP:
+        for Ki in KI:
+            myrobot.setKi(Kp)
+            myrobot.setKp(Ki)
+            myrobot.drive("FORWARD", 100, 5)
+            time.sleep(5)
 
-    #speeds = [0, 50, 100, 150, 200, 255]
-    #for i in speeds:
-    #    logger.info("Driving forward at %d", int(i))
-    #    myrobot.turn("LEFT", int(i))
-    #    time.sleep(5)
-    #logger.info("Look I got here!")
-    myrobot.Cleanup()
-    myrobot.Stop()
+            
+        logger.info("Invalid number of arguments")
+    #myrobot.Stop()
+
+def main_cli_args():
+
+    global myrobot, logger
+    logger = logging.getLogger('encoder')
+    hdlr = logging.FileHandler('/var/tmp/encoders.log')
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.DEBUG)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setFormatter(formatter)
+    sh.setLevel(logging.DEBUG)
+    logger.addHandler(sh)
+
+    Q = Queue.Queue()
+    #Initialize the stopper
+    Stopper = threading.Event()
+    Stopper.clear()
+    threads = []
+
+    feedbackProvider = tBEncoderCapture( Stopper, Q)
+    myrobot = TrackedTrinibot(Stopper, Q, feedbackProvider)
+    feedbackProvider.start()
+    threads.append(feedbackProvider)
+    threads.append(myrobot)
+
+    handler = SignalHandler(Stopper, threads)
+    handler.SetRobot(myrobot)
+    signal.signal(signal.SIGINT, handler)
+
+    myrobot.setKi(0.1)
+    myrobot.setKp(0.08)
+    if len(sys.argv) == 2:
+        myrobot.drive("FORWARD", int(sys.argv[1])) 
+    elif len(sys.argv)==3:
+        myrobot.drive("FORWARD", int(sys.argv[1]), int(sys.argv[2]))
+    else:
+        logger.info("Invalid number of arguments")
+
+
+
 
 def exithandler():
     #global myrobot
@@ -288,4 +365,7 @@ def exithandler():
     print "Goodbye!"
 if __name__ == '__main__':
     atexit.register(exithandler)
-    main()
+    if len(sys.argv) == 1: 
+       main_automation()
+    else:
+       main_cli_args()
