@@ -111,10 +111,12 @@ class tBEncoderCapture(threading.Thread):
     
     #Send an r to the arduino to reset the odo
     def reset(self):
-        time.sleep(0.01)
-        logger.info("Resetting the encoder counter...")
         self.Serial.write('r')
-
+        #wait for acknowledgement
+        while(not self.Serial.read()=='d'):
+            logger.info("Waiting for confirmation")
+        self.q.empty()
+        logger.info("Encoder counter reset...")
     def run(self):
         while not self.stopper.is_set():
             line = self.Serial.readline()
@@ -152,7 +154,7 @@ class TrackedTrinibot():
         #Give Kp and Ki some initial values 
         self.Ki = 0.1
         self.Kp = 0.1
-
+    
     def drive(self, direction, target_speed, target_dist = 20000):
         self.Stop()
         try:
@@ -188,31 +190,34 @@ class TrackedTrinibot():
         integral_l = integral_r= 0
         #Kp=0.1
         #Ki=0.1
-        dist_travelled =last_dist_travelled= 0
+        last_odo= 0
+        odo = 0
+        Odo=self.GetOdo()
+        start_odo = int(Odo[1])
+        logger.info("Start odo: %d", start_odo)
         old_pwm_r = old_pwm_l = 0
         pulse_revolution=1800
         cm_pulse=0.006806
         deg_pulse=0.2
         last_speed_l=last_speed_r=0
+        delta=0
         #Reset the counter through the encoder thread
-        self.encoderThread.reset()
+        #self.encoderThread.reset()
         #TODO Update to read the second encoder
         if self.mode == "pid":
-            logger.info("mode=%s Kp = %f - Ki = %f", self.mode, self.Kp, self.Ki) 
             while self.isRunning == True and not self.stopper.is_set():
                 current_odo = self.GetOdo()
-                #Degrees travelled in centimeteresi since last pass
-                dist_travelled = int(current_odo[1])
-                odo = abs(dist_travelled)*cm_pulse
-                current_speed = 0.2*(abs(dist_travelled - last_dist_travelled))/dt
-                logger.info("odo: %f\t deg/s:%f", odo, current_speed)
-                if odo >= target_distance:
+                odo =  abs(current_odo[1]-start_odo)
+                #odo = odo + abs(delta)
+                current_speed = deg_pulse*(current_odo[1] - last_odo)/dt
+                if odo*cm_pulse >= target_distance:
                         self.isRunning = False
                 error_l = target_speed - current_speed
                 error_r = target_speed - current_speed
                 pwm_l = (self.Kp*error_l) + (self.Ki * integral_l)
                 pwm_r = (self.Kp*error_r) + (self.Ki * integral_r)
-
+                logger.info("delta: %d\t my odo: %d\t deg/s:%f", delta, odo, current_speed)
+                
                 if (pwm_l > 100):
                     pwm_l = 100
                 elif (pwm_l < -100):
@@ -226,8 +231,6 @@ class TrackedTrinibot():
                     pwm_r = -100
                 else:
                     integral_r = integral_r + (error_r*dt)
-                
-                
                 logstring = str(self.Kp)+"\t"+str(self.Ki)+"\t"+str(target_speed) + "\t" + \
                     str(current_odo) + "\t" + str(current_speed) + "\t" + \
                     str(target_distance) + "\t" + str(odo) + "\n"
@@ -236,22 +239,20 @@ class TrackedTrinibot():
                 pwm_l = self.scale(pwm_l)
                 pwm_r = self.scale(pwm_r)
 
-                if(not pwm_l == old_pwm_l): 
-                    self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
-                if (not pwm_r == old_pwm_r):
-                    self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
-                last_dist_travelled = dist_travelled
-                old_pwm_l = pwm_l
-                old_pwm_r = pwm_r
-                last_speed_l = float(current_speed)
-                last_speed_r = float(current_speed)
+                #if(not pwm_l == old_pwm_l): 
+                self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
+                #if (not pwm_r == old_pwm_r):
+                self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
+                #old_pwm_l = pwm_l
+                #old_pwm_r = pwm_r
+                last_odo = current_odo[1]
                 time.sleep(dt)
         else:
             self.tBMotors.runMotor(self.LEFT_MOTOR, target_speed)
             self.tBMotors.runMotor(self.RIGHT_MOTOR, target_speed)
                 #logger.info("New command received... exiting the control loop")
         self.Stop()
-        logger.info("target:%fM - desired:%fM", float(odo), float(target_distance))
+        logger.info("target:%fM - desired:%fM", float(odo*cm_pulse), float(target_distance))
         logfile.close()
 
     def GetOdo(self):
@@ -354,8 +355,8 @@ def main_cli_args():
         myrobot.drive("FORWARD", int(sys.argv[1]), int(sys.argv[2]))
     else:
         logger.info("Invalid number of arguments")
-
-
+   
+    myrobot.Cleanup()
 
 
 def exithandler():
