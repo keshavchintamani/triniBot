@@ -2,22 +2,16 @@
 import platform
 import atexit
 
-#if platform.system() is not 'Darwin':
-
 #Very Pi imports
 from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor
 #from tbAnalogSensors.py import SPIAnalog
 import time as Time
 import atexit
 import threading
-import random as Random
-import Queue
 import sys
 import time
-from subprocess import call
-import subprocess
+
 import serial
-import datetime
 import logging
 import re
 import signal
@@ -40,7 +34,6 @@ class SignalHandler:
         logger.info("Ctrl-C pressed so exiting...")
 	sys.exit(0)
 
-
     def SetRobot(self, bot):
 	self.bot = bot
 
@@ -50,7 +43,7 @@ class SignalHandler:
 class MotorHatDCMotorController():
 
     def __init__(self, motors, i2caddress):
-	global Adafruit_MotorHat
+	    global Adafruit_MotorHat
         self.mh = Adafruit_MotorHAT(addr=i2caddress)
         allmotors=[1,2,3,4]
         self.user_motors=motors
@@ -91,47 +84,43 @@ class MotorHatDCMotorController():
     def cleanClose():
         self.stopMotors()
 
-#A thread that reads encoder data from Arduino over Serial
-class tBEncoderCapture(threading.Thread):
+class tBSerialReader():
 
-    def __init__(self, stopper, queue, devid = '/dev/ttyUSB0'):
-        # type: (object, object, object) -> object
+    def __init__(self, devid):
 
-        threading.Thread.__init__(self)
-        self.stopper = stopper
-        self.q = queue
+        self.devid = devid
+        self.startserial()
 
-        logger.info("Trying to open Serial arduino: %s ", devid)
+    def _startserial(self):
+
+        logger.info("Trying to open Serial arduino: %s ", self.devid)
         try:
-            self.Serial = serial.Serial(devid, 9600)
+            self.Serial = serial.Serial(self.devid, 9600)
             pass
         except (IOError, ValueError):
-            logger.error("Cannot open serial device: %s", devid)
+            logger.error("Cannot open serial device: %s", delf.devid)
             raise IOError
-    
-    #Send an r to the arduino to reset the odo
-    def reset(self):
+
+    def resetserial(self):
         self.Serial.write('r')
-        #wait for acknowledgement
-        while(not self.Serial.read()=='d'):
+        # wait for acknowledgement
+        while (not self.Serial.read() == 'd'):
             logger.info("Waiting for confirmation")
         self.q.empty()
         logger.info("Encoder counter reset...")
-    def run(self):
-        while not self.stopper.is_set():
-            line = self.Serial.readline()
-            res= re.findall("[-+]?\d+[\.]?\d*", line)
-            try:
-                if len(res) > 1:
-                    enc1_vel = int(res[0])
-                    enc2_vel = int(res[1])
-                    self.q.put((enc1_vel, enc2_vel))
-                else:
-                    continue
-            except ValueError:
-                logger.error("Value error exception parsing serial data")
-                pass
-        logger.info("Exiting encoder thread now...")
+
+    def readserial(self):
+
+        line = self.Serial.readline()
+        res = re.findall("[-+]?\d+[\.]?\d*", line)
+        try:
+            if len(res) > 1:
+                enc1_vel = int(res[0])
+                enc2_vel = int(res[1])
+                return ((enc1_vel, enc2_vel))
+        except ValueError:
+            logger.error("Value error exception parsing serial data")
+            pass
 
 #Documentation
 #TrackedTriniBot is a specialized tracked platform using the 150:1 micrometal gearmotors
@@ -139,43 +128,18 @@ class tBEncoderCapture(threading.Thread):
 #Changes to the wheels or transmision should be reflected in the parameters
 class TrackedTrinibot():
 
-    def __init__(self,stopper, devid,  mode ="pid"):
-        self.startserial(devid)
-        self.mode = mode
+    def __init__(self,stopper, encoder_dev = '/dev/ttyUSB0', motorcontrol_dev = 0x60):
+
+        self.serial = tBSerialReader(encoder_dev)
         self.LEFT_MOTOR = 1
         self.RIGHT_MOTOR = 3
-        self.Directions = ["FORWARD", "REVERSE"]
-        self.Turns = ["CLOCKWISE", "COUNTERCLOCKWISE"]
-        self.tBMotors = MotorHatDCMotorController([self.LEFT_MOTOR, self.RIGHT_MOTOR], 0x60)
+        self.Directions = ["FORWARD", "REVERSE", "LEFT", "RIGHT"]
+        self.tBMotors = MotorHatDCMotorController([self.LEFT_MOTOR, self.RIGHT_MOTOR], motorcontrol_dev)
         self.stopper = stopper
         self.isRunning = False
-        #Give Kp and Ki some initial values 
         self.Ki = 0.1
         self.Kp = 0.01
-
-    def startserial(self, devid):
-
-        logger.info("Trying to open Serial arduino: %s ", devid)
-        try:
-            self.Serial = serial.Serial(devid, 9600)
-            pass
-        except (IOError, ValueError):
-            logger.error("Cannot open serial device: %s", devid)
-            raise IOError
-
-    def readserial(self):
-    
-        line = self.Serial.readline()
-        res= re.findall("[-+]?\d+[\.]?\d*", line)
-        try:
-                if len(res) > 1:
-                    enc1_vel = int(res[0])
-                    enc2_vel = int(res[1])
-                    return((enc1_vel, enc2_vel))
-        except ValueError:
-                logger.error("Value error exception parsing serial data")
-                pass
-
+        self.logfileindex=0
     
     def set_direction(self, direction):
         try:
@@ -189,152 +153,146 @@ class TrackedTrinibot():
         elif(direction==self.Directions[1]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
-        
+        elif (direction == self.Directions[0]):
+            self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
+            self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
+        elif (direction == self.Directions[1]):
+            self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
+            self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
+
+    def openlogger(self):
+        filename = "log_" + time.strftime("%Hss_%M_%S_") + str(self.logfileindex) + ".dat"
+        return(open(filename, "w"))
+
     def drive_at_speed(self, direction, target_speed=300):
         self.Stop()
         self.set_direction(direction)
         if(self.isRunning == True):
             logger.info("Motor was running so stopping it by changing flag..")
-            self.isRunning = False
             time.sleep(0.01)
+            return (False)
         self.isRunning = True
-        filename = "log_" + time.strftime("%Hss_%M_%S")+".txt"
-        logfile = open(filename, "w")
+        logfile = self.openlogger()
         dt = 0.01
         integral_l = integral_r= 0
         last_odo= 0
         odo = 0
-        Odo=self.GetOdo()
+        Odo = self.serial.readserial()
         start_odo = int(Odo[1])
-        logger.info("Start odo: %d", start_odo)
-        old_pwm_r = old_pwm_l = 0
         # track travel in centimeters/encoder pulse is 0.006806 for 150:1 and 0.0102 for 100:1
         cm_pulse= 0.0102 #0.006806
         # degrees/encoder pulse is 0.2 for 150:1 and 0.3 for 100:1 - which one is it!!!???
         deg_pulse=0.2
-        last_speed_l=last_speed_r=0
-        delta=0
-        #Reset the counter through the encoder thread
-        #self.encoderThread.reset()
+
         #TODO Update to read the second encoder
-        if self.mode == "pid":
-            while self.isRunning == True and not self.stopper.is_set():
-                current_odo = self.GetOdo()
-                odo =  abs(current_odo[1]-start_odo)
-                current_speed = deg_pulse*(current_odo[1] - last_odo)/dt
-                error_l = target_speed - current_speed
-                error_r = target_speed - current_speed
-                error_percent = abs(error_l)/target_distance*100
-                pwm_l = (self.Kp*error_l) + (self.Ki * integral_l)
-                pwm_r = (self.Kp*error_r) + (self.Ki * integral_r)
-                
-                if (pwm_l > 100):
-                    pwm_l = 100
-                elif (pwm_l < -100):
-                    pwm_l = -100
-                else:
-                    integral_l = integral_l + (error_l*dt)
+        #TODO Add Differentiator to PI controller
+        while self.isRunning == True and not self.stopper.is_set():
+            current_odo = self.serial.readserial()
+            odo =  abs(current_odo[1]-start_odo)
+            current_speed = deg_pulse*(current_odo[1] - last_odo)/dt
+            error_l = target_speed - current_speed
+            error_r = target_speed - current_speed
+            error_percent = abs(error_l)/target_speed*100
+            pwm_l = (self.Kp*error_l) + (self.Ki * integral_l)
+            pwm_r = (self.Kp*error_r) + (self.Ki * integral_r)
 
-                if (pwm_r > 100):
-                    pwm_r = 100
-                elif (pwm_r < -100):
-                    pwm_r = -100
-                else:
-                    integral_r = integral_r + (error_r*dt)
-                logstring = str(self.Kp)+"\t" + str(self.Ki)+"\t"+ str(target_speed) + "\t" + \
-                    str(currrent_speed) + "\t" + str(odo*cm_pulse) + "\t" + \
-                    str(error_percent) + "\n"
+            if (pwm_l > 100):
+                pwm_l = 100
+            elif (pwm_l < -100):
+                pwm_l = -100
+            else:
+                integral_l = integral_l + (error_l*dt)
+            if (pwm_r > 100):
+                pwm_r = 100
+            elif (pwm_r < -100):
+                pwm_r = -100
+            else:
+                integral_r = integral_r + (error_r*dt)
+            pwm_l = self.scalepwm(pwm_l)
+            pwm_r = self.scalepwm(pwm_r)
+            self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
+            self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
+            last_odo = current_odo[1]
+            logstring = str(self.Kp) + "\t" + str(self.Ki) + "\t" + str(target_speed) + "\t" + \
+                        str(currrent_speed) + "\t" + str(odo * cm_pulse) + "\t" + \
+                        str(error_percent) + "\n"
+            logfile.write(logstring)
+            if error_percent < 2:
+                self.isRunning = False
+            time.sleep(dt)
 
-                logfile.write(logstring)
-                pwm_l = self.scale(pwm_l)
-                pwm_r = self.scale(pwm_r)
-
-                self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
-                self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
-                last_odo = current_odo[1]
-                time.sleep(dt)
-                if error_percent < 2:
-                        self.isRunning = False
-         
-        else:
-            self.tBMotors.runMotor(self.LEFT_MOTOR, target_speed)
-            self.tBMotors.runMotor(self.RIGHT_MOTOR, target_speed)
         self.Stop()
         logger.info("target:%fM - desired:%fM", float(odo*cm_pulse), float(target_distance))
         logfile.close()
+        self.logfileindex= self.logfileindex + 1
+        return (True)
 
     def drive_to_distance(self, direction, target_distance=10):
-        self.Stop()
+
         self.set_direction(direction)
         if(self.isRunning == True):
             #self.isRunning = False
             return(False)
             time.sleep(0.01)
         self.isRunning = True
-        filename = "log_" + time.strftime("%Hss_%M_%S")+".txt"
-        logfile = open(filename, "w")
+
+        logfile = self.openlogger()
         dt = 0.01
         integral_l = integral_r= 0
         last_odo= 0
         odo = 0
-        Odo=self.readserial()
+        Odo=self.serial.readserial()
         start_odo = int(Odo[1])
-        old_pwm_r = old_pwm_l = 0
         # track travel in centimeters/encoder pulse is 0.006806 for 150:1 and 0.0102 for 100:1
-        cm_pulse= 0.0102 #0.006806
+        cm_pulse= 0.006806
         # degrees/encoder pulse is 0.2 for 150:1 and 0.3 for 100:1 - which one is it!!!???
         deg_pulse=0.2
-        last_speed_l=last_speed_r=0
-        delta=0
-        #Reset the counter through the encoder thread
-        #self.encoderThread.reset()
+
         #TODO Update to read the second encoder
-        if self.mode == "pid":
-            while self.isRunning == True and not self.stopper.is_set():
-                current_odo = self.readserial()
-                odo =  abs(current_odo[1]-start_odo)
-                current_speed = deg_pulse*(current_odo[1] - last_odo)/dt
-                error_l = target_distance - odo*cm_pulse
-                error_r = error_l
-                error_percent = abs(error_l)/target_distance*100
-                pwm_l = (self.Kp*error_l) + (self.Ki * integral_l)
-                pwm_r = (self.Kp*error_r) + (self.Ki * integral_r)
-                
-                if (pwm_l > 100):
-                    pwm_l = 100
-                elif (pwm_l < -100):
-                    pwm_l = -100
-                else:
-                    integral_l = integral_l + (error_l*dt)
+        while self.isRunning == True and not self.stopper.is_set():
+            current_odo = self.serial.readserial()
+            odo =  abs(current_odo[1]-start_odo)
+            current_speed = deg_pulse*(current_odo[1] - last_odo)/dt
+            error_l = target_distance - odo*cm_pulse
+            error_r = error_l
+            error_percent = abs(error_l)/target_distance*100
+            pwm_l = (self.Kp*error_l) + (self.Ki * integral_l)
+            pwm_r = (self.Kp*error_r) + (self.Ki * integral_r)
 
-                if (pwm_r > 100):
-                    pwm_r = 100
-                elif (pwm_r < -100):
-                    pwm_r = -100
-                else:
-                    integral_r = integral_r + (error_r*dt)
-                
-                pwm_l = self.scale(pwm_l)
-                pwm_r = self.scale(pwm_r)
+            if (pwm_l > 100):
+                pwm_l = 100
+            elif (pwm_l < -100):
+                pwm_l = -100
+            else:
+                integral_l = integral_l + (error_l*dt)
 
-                self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
-                self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
-                last_odo = current_odo[1]
-                if error_percent < 2:
-                        self.isRunning = False
-                logstring = str(self.Kp)+"\t"+str(self.Ki)+"\t" + \
-                    str(target_distance) + "\t" + str(odo*cm_pulse) + "\t" + \
-                    str(error_percent) + "\t" + str(pwm_l) +"\t" + \
-                    str(pwm_r) +  "\n"
- 
-                logfile.write(logstring)
-                time.sleep(dt)
-        else:
-            self.tBMotors.runMotor(self.LEFT_MOTOR, target_speed)
-            self.tBMotors.runMotor(self.RIGHT_MOTOR, target_speed)
+            if (pwm_r > 100):
+                pwm_r = 100
+            elif (pwm_r < -100):
+                pwm_r = -100
+            else:
+                integral_r = integral_r + (error_r*dt)
+
+            pwm_l = self.scalepwm(pwm_l)
+            pwm_r = self.scalepwm(pwm_r)
+
+            self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
+            self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
+            last_odo = current_odo[1]
+            if error_percent < 2:
+                self.isRunning = False
+            logstring = str(self.Kp)+"\t"+str(self.Ki)+"\t" + \
+                        str(target_distance) + "\t" + str(odo*cm_pulse) + "\t" + \
+                        str(error_percent) + "\t" + str(pwm_l) +"\t" + \
+                        str(pwm_r) +  "\n"
+
+            logfile.write(logstring)
+            time.sleep(dt)
+
         self.Stop()
         logger.info("target:%fM - desired:%fM", float(odo*cm_pulse), float(target_distance))
         logfile.close()
+        self.logfileindex = self.logfileindex + 1
         return(True)
 
     def setKp(self, kp):
@@ -342,11 +300,8 @@ class TrackedTrinibot():
     def setKi(self, ki):
             self.Ki = float(ki)
 
-    def GetOdo(self):
-        if isinstance(self.q, Queue.Queue) is True:
-            return self.q.get()
-
-    def scale(self, value):
+    #Scales PWM from -100 to +100 to 0 to 255 
+    def scalepwm(self, value):
         return ((255-0)*(value-(-100))/(100-(-100)) + 0)
 
     def Stop(self):
@@ -372,7 +327,6 @@ def main_automation():
     sh.setLevel(logging.DEBUG)
     logger.addHandler(sh)
 
-    Q = Queue.Queue()
     #Initialize the stopper
     Stopper = threading.Event()
     Stopper.clear()
@@ -385,8 +339,6 @@ def main_automation():
     handler.SetRobot(myrobot)
     signal.signal(signal.SIGINT, handler)
 
-    #Direct drive Tests: Power bot at max PWM for 10 seconds and record velocity
-    #for i in speeds:
     KP=[0.01, 0.05, 0.1, 0.2]#0.5, 0.6, 0.7, 0.8, 0.9]
     KI=[0.01, 0.05, 0.1, 0.2]# 0.5, 0.6, 0.7, 0.8, 0.9]
     for Kp in KP:
@@ -413,7 +365,6 @@ def main_cli_args():
     sh.setLevel(logging.DEBUG)
     logger.addHandler(sh)
 
-    Q = Queue.Queue()
     #Initialize the stopper
     Stopper = threading.Event()
     Stopper.clear()
@@ -439,10 +390,9 @@ def main_cli_args():
 
 
 def exithandler():
-    #global myrobot
-    #myrobot.Cleanup()
-    #myrobot.Stop()
-    print "Goodbye!"
+
+    logger.info("Goodbye!")
+
 if __name__ == '__main__':
     atexit.register(exithandler)
     if len(sys.argv) == 1: 
