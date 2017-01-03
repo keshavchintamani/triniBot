@@ -16,6 +16,14 @@ import logging
 import re
 import signal
 
+#Plot include
+import numpy as np
+#import matplotlib
+#matplotlib.use('Qt4Agg')
+#import matplotlib.pyplot as plt
+#import matplotlib.gridspec as gridspec
+#import matplotlib.patches as mpatches
+
 #Signal handler to kill active threads
 class SignalHandler:
 
@@ -32,10 +40,10 @@ class SignalHandler:
         #for worker in self.workers:
         #   worker.join()
         logger.info("Ctrl-C pressed so exiting...")
-	sys.exit(0)
+        sys.exit(0)
 
     def SetRobot(self, bot):
-	self.bot = bot
+        self.bot = bot
 
 #Lowest level wrapper around MotorHat code from Adafruit.
 # A class to implement a controller for 1 to 4 DC motors at a given I2C address.
@@ -43,7 +51,7 @@ class SignalHandler:
 class MotorHatDCMotorController():
 
     def __init__(self, motors, i2caddress):
-	    global Adafruit_MotorHat
+        global Adafruit_MotorHat
         self.mh = Adafruit_MotorHAT(addr=i2caddress)
         allmotors=[1,2,3,4]
         self.user_motors=motors
@@ -65,7 +73,7 @@ class MotorHatDCMotorController():
             logger.info("Driving Backward Motor %s", mId)
             self.motor[mId].run(Adafruit_MotorHAT.BACKWARD)
         else:
-	    logger.error("Invalid direction provided")
+            logger.error("Invalid direction provided")
             return (False)
 
     def runMotor(self, mId, dutycycle):
@@ -89,7 +97,9 @@ class tBSerialReader():
     def __init__(self, devid):
 
         self.devid = devid
-        self.startserial()
+        self.old_encoder_left=0
+        self.old_encoder_right=0
+        self._startserial()
 
     def _startserial(self):
 
@@ -115,12 +125,13 @@ class tBSerialReader():
         res = re.findall("[-+]?\d+[\.]?\d*", line)
         try:
             if len(res) > 1:
-                enc1_vel = int(res[0])
-                enc2_vel = int(res[1])
-                return ((enc1_vel, enc2_vel))
+                self.old_encoder_left  = int(res[0])
+                self.old_encoder_right = int(res[1])
+                return ((self.old_encoder_left, self.old_encoder_right))
         except ValueError:
             logger.error("Value error exception parsing serial data")
-            pass
+            pass 
+        return ((self.old_encoder_left, self.old_encoder_right))
 
 #Documentation
 #TrackedTriniBot is a specialized tracked platform using the 150:1 micrometal gearmotors
@@ -160,9 +171,10 @@ class TrackedTrinibot():
             self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
 
-    def openlogger(self):
-        filename = "log_" + time.strftime("%Hss_%M_%S_") + str(self.logfileindex) + ".dat"
-        return(open(filename, "w"))
+    def openlogger(self, path="logs/"):
+    #    self.logfilepath = path + "log_" + str(self.logfileindex) + ".dat"
+         return(open("logs/" + "log_" + str(self.logfileindex) + ".dat", "w")
+)
 
     def drive_at_speed(self, direction, target_speed=300):
         self.Stop()
@@ -235,8 +247,7 @@ class TrackedTrinibot():
             return(False)
             time.sleep(0.01)
         self.isRunning = True
-
-        logfile = self.openlogger()
+        logfile = self.openlogger() #open("logs/" + "log_" + str(self.logfileindex) + ".dat", "w")
         dt = 0.01
         integral_l = integral_r= 0
         last_odo= 0
@@ -244,7 +255,7 @@ class TrackedTrinibot():
         Odo=self.serial.readserial()
         start_odo = int(Odo[1])
         # track travel in centimeters/encoder pulse is 0.006806 for 150:1 and 0.0102 for 100:1
-        cm_pulse= 0.006806
+        cm_pulse= 0.006806 #0.006806
         # degrees/encoder pulse is 0.2 for 150:1 and 0.3 for 100:1 - which one is it!!!???
         deg_pulse=0.2
 
@@ -292,7 +303,16 @@ class TrackedTrinibot():
         self.Stop()
         logger.info("target:%fM - desired:%fM", float(odo*cm_pulse), float(target_distance))
         logfile.close()
-        self.logfileindex = self.logfileindex + 1
+        #self.logfileindex = self.logfileindex + 1
+        #array = np.loadtxt(logfilepath)
+        #target = array[:,2]
+        #signal = array[:,3]
+        #time = np.linspace(0, 0.1, len(array[:,2]))
+        #plt.plot(time, signal, label = "Kp=" + str(array[0,0])+ " Ki=" + str(array[0,1]))
+        #
+        #plt.legend()
+        #plt.show()
+
         return(True)
 
     def setKp(self, kp):
@@ -346,7 +366,7 @@ def main_automation():
             logger.info("Running motor at Kp: %f and Ki: %f", Kp, Ki)  
             myrobot.setKi(Kp)
             myrobot.setKp(Ki)
-            status = myrobot.drive_to_distance("FORWARD", 5)
+            status = myrobot.drive_to_distance("FORWARD", 10)
             response = raw_input("Hit enter for next run")
             logger.info(status)#time.sleep(10)
     myrobot.Cleanup()
