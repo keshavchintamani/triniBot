@@ -103,21 +103,19 @@ class tBSerialReader():
 
     def _startserial(self):
 
-        logger.info("Trying to open Serial arduino: %s ", self.devid)
+        print("Trying to open Serial arduino: %s ", self.devid)
         try:
             self.Serial = serial.Serial(self.devid, 9600)
             pass
         except (IOError, ValueError):
-            logger.error("Cannot open serial device: %s", delf.devid)
+            print("Cannot open serial device: %s", self.devid)
             raise IOError
 
     def resetserial(self):
         self.Serial.write('r')
         # wait for acknowledgement
         while (not self.Serial.read() == 'd'):
-            logger.info("Waiting for confirmation")
-        self.q.empty()
-        logger.info("Encoder counter reset...")
+            print("Waiting for confirmation")
 
     def readserial(self):
 
@@ -129,7 +127,7 @@ class tBSerialReader():
                 self.old_encoder_right = int(res[1])
                 return ((self.old_encoder_left, self.old_encoder_right))
         except ValueError:
-            logger.error("Value error exception parsing serial data")
+            #logger.error("Value error exception parsing serial data")
             pass 
         return ((self.old_encoder_left, self.old_encoder_right))
 
@@ -352,7 +350,7 @@ def main_automation():
     Stopper.clear()
     threads = []
 
-    myrobot = TrackedTrinibot(Stopper, "/dev/ttyUSB0")
+    myrobot = TrackedTrinibot(Stopper, "/dev/ttyACM0")
     threads.append(myrobot)
 
     handler = SignalHandler(Stopper, threads)
@@ -390,15 +388,15 @@ def main_cli_args():
     Stopper.clear()
     threads = []
 
-    myrobot = TrackedTrinibot(Stopper, "/dev/ttyUSB0")
+    myrobot = TrackedTrinibot(Stopper, "/dev/ttyACM0")
     threads.append(myrobot)
 
     handler = SignalHandler(Stopper, threads)
-    handler.SetRobot(myrobot)
+    handler.SetRobot(myrobo)
     signal.signal(signal.SIGINT, handler)
 
-    myrobot.setKi(0.05)
-    myrobot.setKp(0.01)
+    myrobot.setKi(0.0)
+    myrobot.setKp(0.001)
     if sys.argv[1] == 'd':
         myrobot.drive_to_distance("FORWARD", int(sys.argv[2])) 
     elif sys.argv[1] == 's':
