@@ -14,7 +14,7 @@ char msg[16];
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(9600);
+  Serial.begin(115200);
   left.write(0);
   right.write(0);
   
@@ -27,15 +27,15 @@ void loop() {
   newLeft = left.read();
   newRight = right.read();
   
-  //if (newLeft != pLeft || newRight != pRight){
-  sprintf(msg, "%ld\t%ld", newLeft, newRight);
-  Serial.println(msg);
-  delay(10);
-  //  pLeft = newLeft;
-  //  pRight= newRight;
-  //}
+  if (newLeft != pLeft || newRight != pRight){
+    sprintf(msg, "%ld\t%ld", newLeft, newRight);
+    Serial.println(msg);
+    delay(10);
+    pLeft = newLeft;
+    pRight= newRight;
+  }
 
-  if(Serial.available()>0){
+ /* if(Serial.available()>0){
     int received = Serial.read();
     if(received == 114){
       Serial.println("Resetting...");
@@ -48,5 +48,5 @@ void loop() {
       right.write(0);
       Serial.write(100);  
     }
-  }
+  }*/
 }
