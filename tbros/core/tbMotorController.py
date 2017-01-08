@@ -286,7 +286,7 @@ class TrackedTrinibot():
         deg_pulse=0.2
         derivative_length=64
         derivate_counter=0
-        MAX_PWM= 50 # Percent duty cycle
+        MAX_PWM= 40 # Percent duty cycle
         log_array = np.empty((0,5), dtype=float)
         while self.isRunning == True and not self.stopper.is_set():
             error_l = target_distance - odo_l*cm_pulse
@@ -338,7 +338,7 @@ class TrackedTrinibot():
 
             if error_percent_l < 2 or error_percent_r < 2 :
                 self.isRunning = False
-            log_array = np.append(log_array, [self.Kp, self.Kd, target_distance, odo_l*cm_pulse, error_l, pwm_l])
+            log_array = np.append(log_array, [self.Kp, self.Kd, target_distance, odo_l*cm_pulse, error_l, pwm_l], axis=0)
 
             #logstring = str(self.Kp)+"\t"+str(self.Kd)+"\t" + \
             #            str(target_distance) + "\t" + str(odo_l*cm_pulse) + "\t" + \
@@ -352,8 +352,8 @@ class TrackedTrinibot():
 
         self.Stop()
         logger.info("target:%fM - desired:%fM", float(odo_l*cm_pulse), float(target_distance))
-        np.save("logs/"+str(derivate_counter) + ".txt", log_array)
-        logfile.close()
+        np.savetxt("logs/"+str(self.logfileindex) + ".txt", log_array)
+        self.logfileindex = self.logfileindex + 1
         return(True)
 
     def turn_to_angle(self, direction, target_angle=90):
@@ -447,12 +447,16 @@ class TrackedTrinibot():
 
     def setKp(self, kp):
             self.Kp = float(kp)
+            logger.info("Kp=", self.Kp)
 
     def setKi(self, ki):
             self.Ki = float(ki)
+            logger.info("Ki=", self.Ki)
 
     def setKd(self, kd):
             self.Kd = float(kd)
+            logger.info("Kd=", self.Kd)
+
 
 
     #Scales PWM from -100 to +100 to 0 to 255 
@@ -535,8 +539,8 @@ def main_cli_args():
     if sys.argv[1] == 'd':
         myrobot.drive_to_distance("FORWARD", int(sys.argv[2])) 
     elif sys.argv[1] == 's' and len(sys.argv) == 5:
-        myrobot.setKd(float(sys.argv[3]))
-        myrobot.setKp(float(sys.argv[2]))
+        myrobot.setKd(float(sys.argv[4]))
+        myrobot.setKp(float(sys.argv[3]))
         myrobot.drive_at_speed("FORWARD", int(sys.argv[2]))
     elif sys.argv[1] == 'a':
             myrobot.turn_to_angle("LEFT", int(sys.argv[2]))
