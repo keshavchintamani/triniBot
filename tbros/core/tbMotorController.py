@@ -266,45 +266,57 @@ class TrackedTrinibot():
         return(True)
 
 
-    def drive_to_distance(self, direction, target_distance=10):
+    def drive_to_distance(self, target_distance=10):
 
-        self.set_direction(direction)
+        #if target_distance > 0:
+        #    self.set_direction("FORWARD")
+        #elif target_distance < 0:
+        #    self.set_direction("REVERSE")
+        #else:
+        #    logger.info("Target distance cannot be %1.3f", target_distance)
+        #    return(False)
+                
         if(self.isRunning == True):
             #self.isRunning = False
             return(False)
             time.sleep(0.01)
         self.isRunning = True
-        logfile = self.openlogger() #open("logs/" + "log_" + str(self.logfileindex) + ".dat", "w")
+        logfile = self.openlogger() 
         dt = 0.01
         integral_l = integral_r= 0
-        error_last_l = error_last_r = 0
+        error_r = error_l = error_last_r = error_last_r = 0
         odo_l = 0
         odo_r = 0
-        # track travel in centimeters/encoder pulse is 0.006806 for 150:1 and 0.0102 for 100:1
         cm_pulse= 0.010471#006806 #0.006806
-        # degrees/encoder pulse is 06.2 for 150:1 and 0.3 for 100:1 - which one is it!!!???
         deg_pulse=0.2
         derivative_length=64
         derivate_counter=0
-        MAX_PWM= 40 # Percent duty cycle
-        log_array = np.empty((0,5), dtype=float)
-        while self.isRunning == True and not self.stopper.is_set():
-            error_l = target_distance - odo_l*cm_pulse
-            error_r = target_distance - odo_r*cm_pulse
-            #average the error
-            error_percent_l = abs(error_l)/target_distance*100
-            error_percent_r = abs(error_r)/target_distance*100
-            pwm_l = (self.Kp*error_l) + (self.Ki * integral_l) + (self.Kd * integral_l)
+        MAX_PWM= 100 # Percent duty cycle
+        current_odo = [0, 0]
+        circumference = 188.495592
+        logger.info("Kp: %0.3f\tKi: %0.3f\t Kd: %0.3f", self.Kp, self.Ki, self.Kd)
+        error_r = 10e6
+        while self.isRunning == True and not self.stopper.is_set(): 
+            
+            #error_l = setpoint - current_odo[1]
             pwm_r = (self.Kp*error_r) + (self.Ki * integral_r) + (self.Kd * integral_r)
 
-            if (pwm_l > MAX_PWM):
-                pwm_l = MAX_PWM
-            elif (pwm_l < -MAX_PWM):
-                pwm_l = -MAX_PWM
-            else:
-                integral_l = integral_l + (error_l*dt)
+            #if (pwm_l > MAX_PWM):
+            #    pwm_l = MAX_PWM
+            #elif (pwm_l < -MAX_PWM):
+            #    pwm_l = -MAX_PWM
+            #else:
+            #    integral_l = integral_l + (error_l*dt)
 
-            derivative_l = (error_l - error_last_l) / dt;
+            #derivative_l = (error_l - error_last_l) / dt;
+            #if(pwm_r > 0):
+            #    self.tBMotors.turnOffMotor(self.RIGHT_MOTOR)
+            #    self.tBMotors.setDirection(self.RIGHT_MOTOR,"FORWARD") 
+            #    logger.info("Switching to Forward")
+            #if pwm_r < 0 :
+            #    self.tBMotors.turnOffMotor(self.RIGHT_MOTOR)
+            #    self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
+            logger.info("Switching to Reverse")
 
             if (pwm_r > MAX_PWM):
                 pwm_r =  MAX_PWM
@@ -315,44 +327,25 @@ class TrackedTrinibot():
 
             derivative_r = (error_r - error_last_r) / dt;
 
-            pwm_s_l = self.scalepwm(pwm_l)
-            pwm_s_r = self.scalepwm(pwm_r)
-
-            self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_s_l))
-            self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_s_r))
-
+            #pwm_s_l = self.scalepwm(pwm_l)
+            pwm_r = self.scalepwm(abs(pwm_r), 0, abs(MAX_PWM))
+            #self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_s_l))
+            self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
+            logger.info("error: %d\tpwm: %d", error_r, int(pwm_r))
+                
             current_odo = self.serial.readserial()
-            #Problem is here - on the first pass last_odo_l = 0 so diff_l > target_distance
-            if(derivate_counter > 1):
-                diff_l =  (current_odo[0] - last_odo_l)
-                diff_r =  (current_odo[1] - last_odo_r)
-            
-                odo_l = odo_l + diff_l
-                odo_r = odo_r + diff_r 
-            
-                logger.info("diff: %f %f %d", error_percent_r, error_r,  odo_r) 
-                current_speed_l = deg_pulse * (current_odo[0] - last_odo_l)/dt
-                current_speed_r = deg_pulse * (current_odo[1] - last_odo_r)/dt
-            last_odo_l = current_odo[0]
-            last_odo_r = current_odo[1]
-
-            if error_percent_l < 2 or error_percent_r < 2 :
-                self.isRunning = False
-            log_array = np.append(log_array, [self.Kp, self.Kd, target_distance, odo_l*cm_pulse, error_l, pwm_l], axis=0)
-
-            #logstring = str(self.Kp)+"\t"+str(self.Kd)+"\t" + \
-            #            str(target_distance) + "\t" + str(odo_l*cm_pulse) + "\t" + \
-            #            str(error_l) + "\t" + str(pwm_l) +"\n"
+            #First pass 
+            if derivate_counter == 0: 
+                setpoint = (target_distance/circumference)*1800 + current_odo[1]
+                continue
+            error_r = setpoint - current_odo[1]
             derivate_counter = derivate_counter + 1
-            #logger.info(logstring)
             if (derivate_counter % derivative_length == 0):
-                error_last_l = error_l
                 error_last_r = error_r
             time.sleep(dt)
 
         self.Stop()
         logger.info("target:%fM - desired:%fM", float(odo_l*cm_pulse), float(target_distance))
-        np.savetxt("logs/"+str(self.logfileindex) + ".txt", log_array)
         self.logfileindex = self.logfileindex + 1
         return(True)
 
@@ -416,6 +409,7 @@ class TrackedTrinibot():
             pwm_l = self.scalepwm(pwm_l)
             pwm_r = self.scalepwm(pwm_r)
 
+            
             self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
             self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
 
@@ -447,22 +441,19 @@ class TrackedTrinibot():
 
     def setKp(self, kp):
             self.Kp = float(kp)
-            logger.info("Kp=", self.Kp)
+            logger.info("Kp=%f", self.Kp)
 
     def setKi(self, ki):
             self.Ki = float(ki)
-            logger.info("Ki=", self.Ki)
+            logger.info("Ki=%f", self.Ki)
 
     def setKd(self, kd):
             self.Kd = float(kd)
-            logger.info("Kd=", self.Kd)
+            logger.info("Kd=%f", self.Kd)
 
-
-
-    #Scales PWM from -100 to +100 to 0 to 255 
-    def scalepwm(self, value):
-        return ((255-0)*(value-(-100))/(100-(-100)) + 0)
-
+    def scalepwm(self, value, p_min, p_max ):
+        return ((255-0)*(value-(p_min))/(p_max-p_min) + 0) 
+    
     def Stop(self):
         logger.info("Stopping Motors")
         self.isRunning = False
@@ -535,15 +526,17 @@ def main_cli_args():
     handler = SignalHandler(Stopper, threads)
     handler.SetRobot(myrobot)
     signal.signal(signal.SIGINT, handler)
-    print len(sys.argv)
     if sys.argv[1] == 'd':
-        myrobot.drive_to_distance("FORWARD", int(sys.argv[2])) 
+        myrobot.setKd(float(sys.argv[4]))
+        myrobot.setKp(float(sys.argv[3]))
+        logger.info("distance: %d", int(sys.argv[2]))
+        myrobot.drive_to_distance( int(sys.argv[2]))
     elif sys.argv[1] == 's' and len(sys.argv) == 5:
         myrobot.setKd(float(sys.argv[4]))
         myrobot.setKp(float(sys.argv[3]))
-        myrobot.drive_at_speed("FORWARD", int(sys.argv[2]))
+        myrobot.drive_at_speed( int(sys.argv[2]))
     elif sys.argv[1] == 'a':
-            myrobot.turn_to_angle("LEFT", int(sys.argv[2]))
+            myrobot.turn_to_angle( int(sys.argv[2]))
     else:
         logger.info("Invalid number of arguments")
    
