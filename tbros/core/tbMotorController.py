@@ -266,15 +266,15 @@ class TrackedTrinibot():
         return(True)
 
 
-    def drive_to_distance(self, target_distance=10):
+    def drive_to_distance(self, target_distance=188.49):
 
-        #if target_distance > 0:
-        #    self.set_direction("FORWARD")
-        #elif target_distance < 0:
-        #    self.set_direction("REVERSE")
-        #else:
-        #    logger.info("Target distance cannot be %1.3f", target_distance)
-        #    return(False)
+        if target_distance > 0:
+            self.set_direction("FORWARD")
+        elif target_distance < 0:
+            self.set_direction("REVERSE")
+        else:
+            logger.info("Target distance cannot be %1.3f", target_distance)
+            return(False)
                 
         if(self.isRunning == True):
             #self.isRunning = False
@@ -291,11 +291,12 @@ class TrackedTrinibot():
         deg_pulse=0.2
         derivative_length=64
         derivate_counter=0
-        MAX_PWM= 100 # Percent duty cycle
+        MAX_PWM= 99# Percent duty cycle
         current_odo = [0, 0]
         circumference = 188.495592
         logger.info("Kp: %0.3f\tKi: %0.3f\t Kd: %0.3f", self.Kp, self.Ki, self.Kd)
-        error_r = 10e6
+        odo = 0
+        direction_r=0
         while self.isRunning == True and not self.stopper.is_set(): 
             
             #error_l = setpoint - current_odo[1]
@@ -309,15 +310,6 @@ class TrackedTrinibot():
             #    integral_l = integral_l + (error_l*dt)
 
             #derivative_l = (error_l - error_last_l) / dt;
-            #if(pwm_r > 0):
-            #    self.tBMotors.turnOffMotor(self.RIGHT_MOTOR)
-            #    self.tBMotors.setDirection(self.RIGHT_MOTOR,"FORWARD") 
-            #    logger.info("Switching to Forward")
-            #if pwm_r < 0 :
-            #    self.tBMotors.turnOffMotor(self.RIGHT_MOTOR)
-            #    self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
-            logger.info("Switching to Reverse")
-
             if (pwm_r > MAX_PWM):
                 pwm_r =  MAX_PWM
             elif (pwm_r < -MAX_PWM):
@@ -326,26 +318,42 @@ class TrackedTrinibot():
                 integral_r = integral_r + (error_r*dt)
 
             derivative_r = (error_r - error_last_r) / dt;
-
+            #logger.info("error: %d\tpwm: %d", error_r, int(pwm_r))
+            if(pwm_r > 0 ):
+               pwm_r = self.scalepwm(abs(pwm_r), 0, abs(MAX_PWM))
+            if pwm_r < 0 :
+               pwm_r=0
+               #logger.info("Switching to Forward")
             #pwm_s_l = self.scalepwm(pwm_l)
-            pwm_r = self.scalepwm(abs(pwm_r), 0, abs(MAX_PWM))
+            #pwm_r = self.scalepwm(abs(pwm_r), 0, abs(MAX_PWM))
             #self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_s_l))
+            if derivate_counter == 0:
+                    pwm_r=50
+            
             self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
-            logger.info("error: %d\tpwm: %d", error_r, int(pwm_r))
-                
+               
             current_odo = self.serial.readserial()
             #First pass 
-            if derivate_counter == 0: 
+            if derivate_counter == 0:
+                logger.info("in derivate_counte")
                 setpoint = (target_distance/circumference)*1800 + current_odo[1]
-                continue
             error_r = setpoint - current_odo[1]
+            percent_error = 100*abs(error_r/((target_distance/circumference)*1800))
+            if (percent_error <10):
+                #self.set_direction("REVERSE")
+                #self.tBMotors.runMotor(self.RIGHT_MOTOR, 254)
+                time.sleep(0.1)
+                self.isRunning = False
+
+            odo = error_r
+            logger.info("error: %0.2f\todo: %d\tpwm: %d", percent_error, odo,  int(pwm_r))
             derivate_counter = derivate_counter + 1
             if (derivate_counter % derivative_length == 0):
                 error_last_r = error_r
+            old_direction_r = direction_r
             time.sleep(dt)
 
         self.Stop()
-        logger.info("target:%fM - desired:%fM", float(odo_l*cm_pulse), float(target_distance))
         self.logfileindex = self.logfileindex + 1
         return(True)
 
