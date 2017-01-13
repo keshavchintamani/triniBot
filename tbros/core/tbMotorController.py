@@ -127,6 +127,7 @@ class tBSerialReader():
                 return ((self.old_encoder_left, self.old_encoder_right))
         except ValueError:
             logger.error("Value error exception parsing serial data")
+            #return((NoneType, NoneType))
             pass 
     #    return ((self.old_encoder_left, self.old_encoder_right))
 
@@ -164,10 +165,10 @@ class TrackedTrinibot():
         elif(direction==self.Directions[1]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
-        elif (direction == self.Directions[0]):
+        elif (direction == self.Directions[2]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
-        elif (direction == self.Directions[1]):
+        elif (direction == self.Directions[3]):
             self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
             self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
 
@@ -270,7 +271,7 @@ class TrackedTrinibot():
             return(False)
             time.sleep(0.01)
         self.isRunning = True
-        dt = 0.001
+        dt = 0.009
 
         integral_l = integral_r= 0
         error_r = error_l = error_last_l = error_last_r = 0
@@ -283,6 +284,11 @@ class TrackedTrinibot():
         odo = 0
         duty = 255
         to_drive = (target_distance/circumference)*1800 
+        if target_distance > 0 :
+            self.set_direction("FORWARD")
+        if target_distance < 0 :
+            self.set_direction("REVERSE")
+        
         while self.isRunning == True and not self.stopper.is_set():
             pwm_r = (self.Kp*error_r) + (self.Ki * integral_r) + (self.Kd * integral_r)
             pwm_l = (self.Kp*error_l) + (self.Ki * integral_l) + (self.Kd * integral_l)
@@ -302,37 +308,34 @@ class TrackedTrinibot():
             else:
                 integral_r = integral_r + (error_r*dt)
             derivative_r = (error_r - error_last_r) / dt;
-
+ 
             if(pwm_r > 0 ):
                 self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
-                pwm_r = self.scalepwm(pwm_r, 0, MAX_PWM, duty)
             if pwm_r < 0 :
                 self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
-                pwm_r = self.scalepwm(pwm_r, 0,-MAX_PWM, duty)
+            pwm_r = self.scalepwm(abs(pwm_r), 0, MAX_PWM, duty)
+            
             if(pwm_l > 0 ):
                 self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
-                pwm_l = self.scalepwm(pwm_l, 0, MAX_PWM, duty)
             if pwm_l < 0 :
                 self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
-                pwm_l = self.scalepwm(pwm_l, 0,-MAX_PWM, duty)
+            pwm_l = self.scalepwm(abs(pwm_l), 0, MAX_PWM, duty)
 
             if derivate_counter == 0:
-                    pwm_l=pwm_r=100 
+                pwm_l=pwm_r=255 
             self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
             self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
             current_odo = self.serial.readserial()
             #First pass 
             if derivate_counter == 0:
-                logger.info("in derivate_counte")
+                logger.info("in derivate_counter")
                 setpoint_r = to_drive + current_odo[1]
                 setpoint_l = to_drive + current_odo[0]
-
             error_r = setpoint_r - current_odo[1]
             error_l = setpoint_l - current_odo[0]
             error_pr = 100*abs(error_r/to_drive)
             error_pl = 100*abs(error_l/to_drive)
-            logger.info("error l:%f r:%f", error_pl, error_pr)
-            if (error_pr < 2 or error_pl < 2):
+            if (error_pr < 0.5 or error_pl < 0.5):
                 self.tBMotors.stopMotor(self.RIGHT_MOTOR)
                 self.tBMotors.stopMotor(self.LEFT_MOTOR) 
                 self.isRunning = False
@@ -344,97 +347,211 @@ class TrackedTrinibot():
             time.sleep(dt)
 
         logger.info("counts %d", derivate_counter)
+        logger.info("error l:%f r:%f", error_pl, error_pr)
+        self.tBMotors.stopMotors()
         return(True)
 
-    def turn_to_angle(self, direction, target_angle=90):
+    def turn_to_angle(self, target_angle=90):
 
-        self.set_direction(direction)
         if(self.isRunning == True):
-            #self.isRunning = False
             return(False)
             time.sleep(0.01)
         self.isRunning = True
-        logfile = self.openlogger() #open("logs/" + "log_" + str(self.logfileindex) + ".dat", "w")
-        dt = 0.05
+        dt = 0.009
+
         integral_l = integral_r= 0
-        last_odo_l = last_odo_r = error_last_l = error_last_r = 0
-        odo_l = odo_r = 0
-        Odo=self.serial.readserial()
-        start_odo_l = int(Odo[0])
-        start_odo_r = int(Odo[1])
-
-        base_deg_pulse = 0.08074534161
-
+        error_r = error_l = error_last_l = error_last_r = 0
         derivative_length=64
         derivate_counter=0
+        MAX_PWM= 100# Percent duty cycle
+        current_odo = [0, 0]
+        circumference = 188.495592
+        logger.info("Kp: %0.3f\tKi: %0.3f\t Kd: %0.3f", self.Kp, self.Ki, self.Kd)
+        odo = 0
+        duty = 255
+        to_drive = target_angle*8.05
+        if target_angle > 0 :
+            direction = 1 
+            self.set_direction("LEFT")
+        if target_angle < 0 :
+            direction = -1
+            self.set_direction("RIGHT")
+        
+        logger.info("angle: %f direction: %d", target_angle, direction)
         while self.isRunning == True and not self.stopper.is_set():
-
-            current_odo = self.serial.readserial()
-            odo_l = abs(current_odo[0] - start_odo_l)
-            odo_r = abs(current_odo[1] - start_odo_r)
-
-            current_speed_l = base_deg_pulse * (current_odo[0] - last_odo_l)/dt
-            current_speed_r = base_deg_pulse * (current_odo[1] - last_odo_r)/dt
-
-            error_l = target_angle - odo_l*base_deg_pulse
-            error_r = target_angle - odo_r*base_deg_pulse
-
-            #average the error
-            error_percent = (abs(error_l)/target_angle*100 + abs(error_r)/target_angle*100)/2
-
-            pwm_l = (self.Kp*error_l) + (self.Ki * integral_l) + (self.Kd * integral_l)
             pwm_r = (self.Kp*error_r) + (self.Ki * integral_r) + (self.Kd * integral_r)
+            pwm_l = (self.Kp*error_l) + (self.Ki * integral_l) + (self.Kd * integral_l)
 
-            if (pwm_l > 100):
-                pwm_l = 100
-            elif (pwm_l < -100):
-                pwm_l = -100
+            if (pwm_l > MAX_PWM):
+                pwm_l = MAX_PWM
+            elif (pwm_l < -MAX_PWM):
+                pwm_l = -MAX_PWM
             else:
                 integral_l = integral_l + (error_l*dt)
-
             derivative_l = (error_l - error_last_l) / dt;
 
-            if (pwm_r > 100):
-                pwm_r = 100
-            elif (pwm_r < -100):
-                pwm_r = -100
+            if (pwm_r > MAX_PWM):
+                pwm_r =  MAX_PWM
+            elif (pwm_r < -MAX_PWM):
+                pwm_r = -MAX_PWM
             else:
                 integral_r = integral_r + (error_r*dt)
-
             derivative_r = (error_r - error_last_r) / dt;
+ 
+            if direction == 1:
+                    if(pwm_r > 0 ):
+                        self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
+                    if pwm_r < 0 :
+                        self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
+                    pwm_r = self.scalepwm(abs(pwm_r), 0, MAX_PWM, duty)        
+                    if(pwm_l > 0 ):
+                        self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
+                    if pwm_l < 0 :
+                       self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
+                    pwm_l = self.scalepwm(abs(pwm_l), 0, MAX_PWM, duty)
+            ##else:
+            #        if(pwm_r > 0 ):
+            #            self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
+            #        if pwm_r < 0 :
+            #            self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
+            #        pwm_r = self.scalepwm(abs(pwm_r), 0, MAX_PWM, duty)        
+            #        if(pwm_l > 0 ):
+            #            self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
+            #        if pwm_l < 0 :
+            #            self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
+            #        pwm_l = self.scalepwm(abs(pwm_l), 0, MAX_PWM, duty)  
 
-            pwm_l = self.scalepwm(pwm_l)
-            pwm_r = self.scalepwm(pwm_r)
-
-            
-            self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
+            if derivate_counter == 0:
+                pwm_l=pwm_r=100 
             self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
-
-            last_odo_l = current_odo[0]
-            last_odo_r = current_odo[1]
-
-            if error_percent < 2:
+            self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
+            current_odo = self.serial.readserial()
+            #First pass 
+            if derivate_counter == 0:
+                logger.info("in derivate_counter")
+                setpoint_r = to_drive + current_odo[1]
+                setpoint_l = to_drive + current_odo[0]
+            error_r = setpoint_r - current_odo[1]
+            error_l = setpoint_l - current_odo[0]
+            error_pr = 100*abs(error_r/to_drive)
+            error_pl = 100*abs(error_l/to_drive)
+            if (error_pr < 0.5 or error_pl < 0.5):
+                self.tBMotors.stopMotor(self.RIGHT_MOTOR)
+                self.tBMotors.stopMotor(self.LEFT_MOTOR) 
                 self.isRunning = False
-            #logstring = str(self.Kp)+"\t"+str(self.Ki)+"\t" + \
-            #            str(target_angle) + "\t" + str(odo*cm_pulse) + "\t" + \
-            #            str(error_percent) + "\t" + str(pwm_l) +"\t" + \
-            #            str(pwm_r) +  "\n"
 
             derivate_counter = derivate_counter + 1
-
             if (derivate_counter % derivative_length == 0):
-                # derivate_length has passed
-                error_last_l = error_l
                 error_last_r = error_r
-
+                error_last_l = error_l
             time.sleep(dt)
 
-        self.Stop()
-        logger.info("target:%fM - desired:%fM", float(odo*base_deg_pulse), float(target_angle))
-        logfile.write(logstring)
-        logfile.close()
-
+        logger.info("counts %d", derivate_counter)
+        logger.info("error l:%f r:%f", error_pl, error_pr)
+        self.tBMotors.stopMotors()
         return(True)
+
+
+    def aturn_to_angle(self, target_angle=90):
+
+        if(self.isRunning == True):
+            return(False)
+            time.sleep(0.01)
+        self.isRunning = True
+        dt = 0.009
+
+        integral_l = integral_r= 0
+        error_r = error_l = error_last_l = error_last_r = 0
+        derivative_length=64
+        derivate_counter=0
+        MAX_PWM= 100# Percent duty cycle
+        current_odo = [0, 0]
+        circumference = 188.495592
+        logger.info("Kp: %0.3f\tKi: %0.3f\t Kd: %0.3f", self.Kp, self.Ki, self.Kd)
+        odo = 0
+        duty = 255
+        to_drive = target_angle*8.05
+        if target_angle > 0 :
+            direction = 1 
+            self.set_direction("LEFT")
+        if target_angle < 0 :
+            direction = -1
+            self.set_direction("RIGHT")
+        
+        while self.isRunning == True and not self.stopper.is_set():
+            pwm_r = (self.Kp*error_r) + (self.Ki * integral_r) + (self.Kd * integral_r)
+            pwm_l = (self.Kp*error_l) + (self.Ki * integral_l) + (self.Kd * integral_l)
+
+            if (pwm_l > MAX_PWM):
+                pwm_l = MAX_PWM
+            elif (pwm_l < -MAX_PWM):
+                pwm_l = -MAX_PWM
+            else:
+                integral_l = integral_l + (error_l*dt)
+            derivative_l = (error_l - error_last_l) / dt;
+
+            if (pwm_r > MAX_PWM):
+                pwm_r =  MAX_PWM
+            elif (pwm_r < -MAX_PWM):
+                pwm_r = -MAX_PWM
+            else:
+                integral_r = integral_r + (error_r*dt)
+            derivative_r = (error_r - error_last_r) / dt;
+ 
+            if direction == -1:
+                    if(pwm_r > 0 ):
+                        self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
+                    if pwm_r < 0 :
+                        self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
+                    pwm_r = self.scalepwm(abs(pwm_r), 0, MAX_PWM, duty)        
+                    if(pwm_l > 0 ):
+                        self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
+                    if pwm_l < 0 :
+                        self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
+                    pwm_l = self.scalepwm(abs(pwm_l), 0, MAX_PWM, duty)
+            else:
+                    if(pwm_r > 0 ):
+                        self.tBMotors.setDirection(self.RIGHT_MOTOR, "FORWARD")
+                    if pwm_r < 0 :
+                        self.tBMotors.setDirection(self.RIGHT_MOTOR, "REVERSE")
+                    pwm_r = self.scalepwm(abs(pwm_r), 0, MAX_PWM, duty)        
+                    if(pwm_l > 0 ):
+                        self.tBMotors.setDirection(self.LEFT_MOTOR, "REVERSE")
+                    if pwm_l < 0 :
+                        self.tBMotors.setDirection(self.LEFT_MOTOR, "FORWARD")
+                    pwm_l = self.scalepwm(abs(pwm_l), 0, MAX_PWM, duty)  
+
+            if derivate_counter == 0:
+                pwm_l=pwm_r=255 
+            self.tBMotors.runMotor(self.RIGHT_MOTOR, int(pwm_r))
+            self.tBMotors.runMotor(self.LEFT_MOTOR, int(pwm_l))
+            current_odo = self.serial.readserial()
+            #First pass 
+            if derivate_counter == 0:
+                logger.info("in derivate_counter")
+                setpoint_r = to_drive + current_odo[1]
+                setpoint_l = to_drive + current_odo[0]
+            error_r = setpoint_r - current_odo[1]
+            error_l = setpoint_l - current_odo[0]
+            error_pr = 100*abs(error_r/to_drive)
+            error_pl = 100*abs(error_l/to_drive)
+            if (error_pr < 0.5 or error_pl < 0.5):
+                self.tBMotors.stopMotor(self.RIGHT_MOTOR)
+                self.tBMotors.stopMotor(self.LEFT_MOTOR) 
+                self.isRunning = False
+
+            derivate_counter = derivate_counter + 1
+            if (derivate_counter % derivative_length == 0):
+                error_last_r = error_r
+                error_last_l = error_l
+            time.sleep(dt)
+
+        logger.info("counts %d", derivate_counter)
+        logger.info("error l:%f r:%f", error_pl, error_pr)
+        self.tBMotors.stopMotors()
+        return(True)
+
+
 
     def setKp(self, kp):
             self.Kp = float(kp)
@@ -533,7 +650,9 @@ def main_cli_args():
         myrobot.setKp(float(sys.argv[3]))
         myrobot.drive_at_speed( int(sys.argv[2]))
     elif sys.argv[1] == 'a':
-            myrobot.turn_to_angle( int(sys.argv[2]))
+        myrobot.setKd(float(sys.argv[4]))
+        myrobot.setKp(float(sys.argv[3]))
+        myrobot.turn_to_angle( int(sys.argv[2]))
     else:
         logger.info("Invalid number of arguments")
    
