@@ -35,7 +35,7 @@ void loop() {
     pRight= newRight;
   }
 
- /* if(Serial.available()>0){
+  if(Serial.available()>0){
     int received = Serial.read();
     if(received == 114){
       Serial.println("Resetting...");
@@ -48,5 +48,5 @@ void loop() {
       right.write(0);
       Serial.write(100);  
     }
-  }*/
+  }
 }
