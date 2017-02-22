@@ -1,0 +1,10 @@
+<launch>
+	<env name="ROS_MASTER_URI" value="http://192.168.1.15:11311"/> 
+	<machine name="kc" address="192.168.1.15" user="kc" env-loader="~/sandbox/envloader.sh" timeout="10.0" default="true" />
+	<machine name="raspberrypi" address="192.168.1.6" user="pi" env-loader="/home/pi/rosenv.sh" timeout="10.0" default="never" />
+	<node pkg="cv_camera" type="cv_camera_node" name="cv_camera"  machine ="raspberrypi" respawn="false" output="screen">
+		<remap from="/cv_camera/image_raw" to="/trinibot/image_raw" />
+	</node>
+	<node pkg="camera_calibration" type="cameracalibrator.py" args="--size 8x6 --square 0.108 monocular:=/$(arg a) image:=/$(arg b)" name="camera_calibration" machine ="kc" respawn="false" output="screen">
+	</node>
+</launch>
