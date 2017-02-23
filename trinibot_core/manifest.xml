@@ -1,0 +1,23 @@
+<package>
+  <description brief="trinibot_core">
+
+     trinibot_core
+
+  </description>
+  <author>kc</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/trinibot_core</url>
+  <depend package="sensor_msgs"/>
+  <depend package="std_msgs"/>
+  <!--  <depend package="opencv3"/> -->
+  <depend package="nav_msgs"/>
+  <depend package="genmsg"/>
+  <depend package="genpy"/>
+  <depend package="message_runtime"/>
+  <depend package="catkin"/>
+  <depend package="rospy"/>
+
+</package>
+
+
