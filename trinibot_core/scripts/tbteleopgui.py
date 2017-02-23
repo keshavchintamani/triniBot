@@ -8,7 +8,7 @@ import Tkinter
 
 roslib.load_manifest('trinibot_core')
 
-from balltracker.msg import command
+from geometry_msgs.msg import TwistStamped
 
 class robotGUI_tk(Tkinter.Tk):
 
@@ -16,7 +16,7 @@ class robotGUI_tk(Tkinter.Tk):
         Tkinter.Tk.__init__(self, parent)
         self.parent = parent
         self.initialize()
-        self.pub = rospy.Publisher('/tbmotionplanner/command', command, queue_size=10)
+        self.pub = rospy.Publisher('/tbmotionplanner/Twist', TwistStamped, queue_size=10)
 
     def initialize(self):
         self.grid()
@@ -29,14 +29,14 @@ class robotGUI_tk(Tkinter.Tk):
         labelAngle = Tkinter.Label(self, text = u"Angle", anchor="w", fg="white", bg ="blue")
         labelAngle.grid(column=0, row=1, sticky='EW')
 
-        self.speedEntryVar = Tkinter.StringVar(value="100")
+        self.distanceEntryVar = Tkinter.StringVar(value="100")
 
         labelSpeed = Tkinter.Label(self, text = u"Speed", anchor="w", fg="white", bg ="blue")
         labelSpeed.grid(column=0, row=2, sticky='EW')
 
-        speedentry = Tkinter.Entry(self, textvariable = self.speedEntryVar )
-        speedentry.grid(column=1, row = 2, sticky='EW')
-        speedentry.bind("<Return>", self.OnSpeedPressEnter)
+        distanceentry = Tkinter.Entry(self, textvariable = self.distanceEntryVar )
+        distanceentry.grid(column=1, row = 2, sticky='EW')
+        distanceentry.bind("<Return>", self.OnDistancePressEnter)
 
         angleentry = Tkinter.Entry(self, textvariable = self.angleEntryVar )
         angleentry.grid(column=1, row = 1, sticky='EW')
@@ -59,48 +59,58 @@ class robotGUI_tk(Tkinter.Tk):
         bbutton = Tkinter.Button(self, text=u"back", command = self.OnBackButtonClick)
         bbutton.grid(column=3, row = 3)
 
-    def OnSpeedPressEnter(self,event):
-        print "You pressed  %s" % self.speedEntryVar.get()
+    def OnDistancePressEnter(self,event):
+        print "You pressed  %s" % self.distanceEntryVar.get()
 
     def OnAnglePressEnter(self,event):
         print "You pressed  %s" % self.angleEntryVar.get()
 
     def OnForwardButtonClick(self):
-        self.publish_command("LOW","FORWARD",self.speedEntryVar.get() , 0)
+        self.publish_command("LINEAR",self.distanceEntryVar.get())
 
     def OnLeftButtonClick(self):
-        self.publish_command("LOW","LEFT",self.speedEntryVar.get() , self.angleEntryVar.get())
+        self.publish_command("ANGULAR",self.angleEntryVar.get())
 
     def OnRightButtonClick(self):
-        self.publish_command("LOW","RIGHT",self.speedEntryVar.get() , self.angleEntryVar.get())
+        self.publish_command("ANGULAR",-int(self.angleEntryVar.get()))
 
     def OnBackButtonClick(self):
-        self.publish_command("LOW","REVERSE",self.speedEntryVar.get(), 0)
+        self.publish_command("LINEAR", -int(self.distanceEntryVar.get()))
 
     def OnStopButtonClick(self):
-        self.publish_command("LOW","STOP",self.speedEntryVar.get(), 0)
+        self.publish_command("STOP", 0)
 
     def gracefullyExit(self):
         #Stop the motors
-        self.publish_command("LOW","STOP",self.speedEntryVar.get(), 0)
+        self.publish_command("STOP", 0)
 
-    def publish_command(self,priority, direction, speed, angle):
+    def publish_command(self,direction, value):
 
-        msg = command()
-        msg.direction = str(direction)
-        msg.speed = int(speed)
-        msg.angle = float(angle)
-        msg.priority = str(priority)
+        msg = TwistStamped()
+        msg.twist.linear.x = msg.twist.linear.y = msg.twist.linear.z = 0
+        msg.twist.angular.x = msg.twist.angular.y = msg.twist.angular.z = 0
+        if (direction == "LINEAR"):
+            msg.header.frame_id= direction
+            msg.twist.linear.x = value
+        elif (direction == "ANGULAR"):
+            msg.header.frame_id = direction
+            msg.twist.angular.z = value
+        elif (direction == "STOP"):
+            msg.header.frame_id = direction
+            msg.twist.angular.z = value
+
         rospy.loginfo("Test: Publishing: %s", msg)
         self.pub.publish(msg)
 
 if __name__ == '__main__':
     try:
         rospy.init_node('teleop_gui', anonymous=True)
-
-        app = robotGUI_tk(None)
-        app.title('triniBot UI')
-        app.mainloop()
+        while not rospy.is_shutdown():
+            rospy.loginfo("Doing something")
+            Time.sleep(2)
+        #app = robotGUI_tk(None)
+        #app.title('triniBot UI')
+        #app.mainloop()
         #atexit.register(app.gracefullyExit)
 
     except rospy.ROSInterruptException:

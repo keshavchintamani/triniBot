@@ -1,19 +1,32 @@
 <launch>
 
     <env name="ROS_MASTER_URI" value="http://192.168.1.15:11311"/>
-    <machine name="kc" address="192.168.1.15" user="kc" env-loader="~/sandbox/envloader.sh" timeout="10.0" default="true" />
-    <machine name="raspberrypi" address="192.168.1.6" user="pi" env-loader="/home/pi/rosenv.sh" timeout="10.0" default="never" />
+    <machine name="kc" address="192.168.1.15" user="kc" env-loader="/home/kc/sandbox/triniBot/src/trinibot_core/laptop_envloader.sh" timeout="10.0" default="true" />
+    <machine name="raspberrypi" address="192.168.1.6" user="pi" env-loader="/home/pi/triniBot/src/trinibot_core/pi_envloader.sh" timeout="10.0" default="never" />
 
-    <node pkg="cv_camera" type="cv_camera_node" name="cv_camera"  machine ="raspberrypi" respawn="false" output="screen">
-    <remap from="/cv_camera/image_raw" to="/trinibot/image_raw" />
+    <node pkg="usb_cam" type="usb_cam_node" name="trinibot_camera" args="_autofocus=1 _image_width:=320 _image_height:=240 _pixel_format:=&quot;yuyv&quot;" machine ="raspberrypi" respawn="false" output="screen">
+        <remap from="/usb_cam/image_raw" to="/trinibot/image" />
     </node>
 
-    <node pkg="image_view" type="image_view" name="image_viewer"  machine ="kc" respawn="false" output="screen">
-    <remap from="/image" to="/trinibot/image_raw"/>
+    <node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/trinibot_camera/image_raw _image_transport:=&quot;compressed&quot;" machine ="kc" respawn="false" output="screen">
+
     </node>
 
-    <node pkg="motioncontroller" type="motioncontroller_node.py" name="remote_robot_server" machine="raspberrypi" respawn="false" output="screen" />
-    <node pkg="keyboard" type="keyboard" name="teleop_keystrokes"  machine="kc" respawn="true" output="screen" />
-    <node pkg="sensehat_publisher" type="sensehat_publisher.py" name="sensehat_imu_data"  machine="raspberrypi" respawn="true" />
-
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="raspberrypi" respawn="false" output="screen" />
+    <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="kc" respawn="false" output="screen" />
+ <!--     <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="raspberrypi" respawn="false" />-->
 </launch>
+
+<!-- args="image:=/trinibot_camera/image_raw _image_transport:=&quot;compressed&quot;"-->
+ <!--  <node pkg="raspicam" type="raspicam_node" name="trinibot_camera" args="_width:=320 _height:=240 _framerate:=15 _quality:=100" machine ="raspberrypi" respawn="false" output="screen">
+        <remap from="/camera/image/compressed" to="/trinibot/image" />
+    </node>
+
+   <!-
+    <node pkg="image_rotate" type="image_rotate" name="trinibot_image_rotate" args="image:=/trinibot_camera/image_raw" machine ="raspberrypi" respawn="false" output="screen">
+        <remap from="/usb_cam/image_raw" to="/trinibot/image" />
+    </node>
+
+#Use this - calls a bash script on the RPi to invoke a rosservice call (to start the raspicam node)
+    <node pkg="trinibot_core" type="raspicam_startcamera.bash" name="startcamera" machine="raspberrypi" respawn="false" output="screen" />
+-->
