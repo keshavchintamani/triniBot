@@ -9,7 +9,6 @@ echo $ROS_MASTER_URI
 source /usr/local/bin/virtualenvwrapper.sh
 source /home/pi/rosws/devel_isolated/setup.bash
 source /home/pi/external-rospacks/devel/setup.bash
-source /home/pi/triniBot/devel/setup.bash
 sudo modprobe bcm2835-v4l2
 #echo "Adding paths to python"
 #export PYTHONPATH=$PYTHONPATH:/home/pi/triniBot/tbros/core
