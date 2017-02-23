@@ -1,0 +1,8 @@
+prefix=/home/kc/sandbox/triniBot/tbros/devel
+
+Name: balltracker
+Description: Description of balltracker
+Version: 0.0.1
+Cflags: -I/home/kc/sandbox/triniBot/tbros/devel/include
+Libs: -L/home/kc/sandbox/triniBot/tbros/devel/lib 
+Requires: message_runtime std_msgs

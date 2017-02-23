@@ -1,0 +1,8 @@
+prefix=/home/kc/sandbox/triniBot/tbros/install
+
+Name: sensehat_publisher
+Description: Description of sensehat_publisher
+Version: 0.0.1
+Cflags: 
+Libs: -L/home/kc/sandbox/triniBot/tbros/install/lib 
+Requires: message_runtime std_msgs sensor_msgs

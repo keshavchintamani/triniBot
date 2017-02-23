@@ -1,0 +1,2 @@
+balltracker:motioncontroller:sensehat_publisher
+-DCATKIN_DEVEL_PREFIX=/home/kc/sandbox/triniBot/tbros/devel -DCMAKE_INSTALL_PREFIX=/home/kc/sandbox/triniBot/tbros/install -G Unix Makefiles
