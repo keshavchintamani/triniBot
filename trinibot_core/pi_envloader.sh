@@ -10,8 +10,5 @@ source /usr/local/bin/virtualenvwrapper.sh
 source /home/pi/rosws/devel_isolated/setup.bash
 source /home/pi/external-rospacks/devel/setup.bash
 sudo modprobe bcm2835-v4l2
-#echo "Adding paths to python"
-#export PYTHONPATH=$PYTHONPATH:/home/pi/triniBot/tbros/core
-#workon cv3
-#sleep 2
+workon cv3
 exec "$@"

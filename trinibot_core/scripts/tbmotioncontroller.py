@@ -15,6 +15,7 @@ def command_callback(data):
     #Process command
     global robot
     #This callback receives pose updates from the sensehat
+    rospy.loginfo(data)
     if(data.header.frame_id=="LINEAR"):
         robot.drive_to_distance( data.twist.linear.x)
     elif(data.header.frame_id=="ANGULAR"):
@@ -25,8 +26,8 @@ def command_callback(data):
 
 def listener():
 
-    rospy.init_node('motioncontroller_subscriber', anonymous=True)
-    rospy.Subscriber('/tbmotionplanner/TwistStamped', TwistStamped, command_callback)
+    rospy.init_node('tbmotioncontroller', anonymous=True)
+    rospy.Subscriber('/tbmotioncontroller/TwistStamped', TwistStamped, command_callback)
 
     rate= rospy.Rate(1)
     while not rospy.is_shutdown():
