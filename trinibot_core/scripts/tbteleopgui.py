@@ -5,6 +5,7 @@ import roslib
 import random
 import time as Time
 import Tkinter
+import atexit
 
 roslib.load_manifest('trinibot_core')
 
@@ -16,7 +17,7 @@ class robotGUI_tk(Tkinter.Tk):
         Tkinter.Tk.__init__(self, parent)
         self.parent = parent
         self.initialize()
-        self.pub = rospy.Publisher('/tbmotionplanner/Twist', TwistStamped, queue_size=10)
+        self.pub = rospy.Publisher('/tbteleopgui/TwistStamped', TwistStamped, queue_size=10)
 
     def initialize(self):
         self.grid()
@@ -66,16 +67,16 @@ class robotGUI_tk(Tkinter.Tk):
         print "You pressed  %s" % self.angleEntryVar.get()
 
     def OnForwardButtonClick(self):
-        self.publish_command("LINEAR",self.distanceEntryVar.get())
+        self.publish_command("LINEAR",float(self.distanceEntryVar.get()))
 
     def OnLeftButtonClick(self):
-        self.publish_command("ANGULAR",self.angleEntryVar.get())
+        self.publish_command("ANGULAR",float(self.angleEntryVar.get()))
 
     def OnRightButtonClick(self):
-        self.publish_command("ANGULAR",-int(self.angleEntryVar.get()))
+        self.publish_command("ANGULAR", float(self.angleEntryVar.get())*(-1))
 
     def OnBackButtonClick(self):
-        self.publish_command("LINEAR", -int(self.distanceEntryVar.get()))
+        self.publish_command("LINEAR", float(self.distanceEntryVar.get())*(-1))
 
     def OnStopButtonClick(self):
         self.publish_command("STOP", 0)
@@ -87,8 +88,8 @@ class robotGUI_tk(Tkinter.Tk):
     def publish_command(self,direction, value):
 
         msg = TwistStamped()
-        msg.twist.linear.x = msg.twist.linear.y = msg.twist.linear.z = 0
-        msg.twist.angular.x = msg.twist.angular.y = msg.twist.angular.z = 0
+        msg.twist.linear.x = msg.twist.linear.y = msg.twist.linear.z = 0.0
+        msg.twist.angular.x = msg.twist.angular.y = msg.twist.angular.z = 0.0
         if (direction == "LINEAR"):
             msg.header.frame_id= direction
             msg.twist.linear.x = value
@@ -99,19 +100,15 @@ class robotGUI_tk(Tkinter.Tk):
             msg.header.frame_id = direction
             msg.twist.angular.z = value
 
-        rospy.loginfo("Test: Publishing: %s", msg)
         self.pub.publish(msg)
 
 if __name__ == '__main__':
     try:
         rospy.init_node('teleop_gui', anonymous=True)
-        while not rospy.is_shutdown():
-            rospy.loginfo("Doing something")
-            Time.sleep(2)
-        #app = robotGUI_tk(None)
-        #app.title('triniBot UI')
-        #app.mainloop()
-        #atexit.register(app.gracefullyExit)
+        app = robotGUI_tk(None)
+        app.title('triniBot Teleoperation Controls')
+        app.mainloop()
+        atexit.register(app.gracefullyExit)
 
     except rospy.ROSInterruptException:
 	pass
