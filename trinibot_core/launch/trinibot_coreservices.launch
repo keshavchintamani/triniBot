@@ -1,8 +1,8 @@
 <launch>
 
     <env name="ROS_MASTER_URI" value="http://192.168.1.15:11311"/>
-    <machine name="kc" address="192.168.1.15" user="kc" env-loader="/home/kc/sandbox/triniBot/src/trinibot_core/laptop_envloader.sh" timeout="10.0" default="true" />
-    <machine name="raspberrypi" address="192.168.1.6" user="pi" env-loader="/home/pi/triniBot/src/trinibot_core/pi_envloader.sh" timeout="10.0" default="never" />
+    <machine name="kc" address="192.168.1.15" user="kc" env-loader="/home/kc/sandbox/external-rospacks/trinibot_core/laptop_envloader.sh" timeout="10.0" default="true" />
+    <machine name="raspberrypi" address="192.168.1.6" user="pi" env-loader="/home/pi/external-rospacks/trinibot_core/pi_envloader.sh" timeout="10.0" default="never" />
 
     <node pkg="usb_cam" type="usb_cam_node" name="trinibot_camera" args="_autofocus=1 _image_width:=320 _image_height:=240 _pixel_format:=&quot;yuyv&quot;" machine ="raspberrypi" respawn="false" output="screen">
         <remap from="/usb_cam/image_raw" to="/trinibot/image" />
