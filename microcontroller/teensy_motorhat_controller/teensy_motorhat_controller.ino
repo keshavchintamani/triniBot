@@ -39,9 +39,12 @@ const int encoders_baserotation = 2898;
 */
 //For tracks
 const float circumference = 122.5221135; //mm
-const int encoders_wheelrotation = 1800;
-const int encoders_baserotation = 4459;
+const float wradius = 19.5; //mm
+const float w2wradius = 48.3;//mm
+const int encoders_wheelrotation = 1800; //pulses
+const int encoders_baserotation = 4459; //pulses
 
+float w_w2w_ratio=0.4;
 
 signed int max_pwm = 150;
 
@@ -54,9 +57,6 @@ signed int youtMax = 0;
 const int ledPin = 13;
 int p=0;
 
-
-unsigned int dt = 20; //20 microseconds 
-unsigned int delta_velocity = 100000; // microseconds to track ve
 // this is the decode table for the optical encoder
 signed long enc_TAB[]={0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0};
 
@@ -67,14 +67,20 @@ IntervalTimer encoder;
 
 //All things to do with serial
 char* type;
-float  value = 0.0;
 String serialcommand, header, values;
 
 #define POSITION 0
 #define VELOCITY 1
+#define TURNRATE 1
 
+#define dT 20 //Interrupt frequency in microseconds
+signed int PULSE_DEG = 5; //Number of encoder pulses per degree
+signed int PULSE_DEG_BASE = 13; //Round off - should be 12.38 insted
+signed int  VELOCITY_SAMPLING_RATE = 50; //Instantaneous velocity capture in hz
+unsigned int freqRate=0;
+  
 volatile unsigned int mode = POSITION; // by default set it to position tracking
-
+volatile bool modeAngular = false;
 char msg[16];
 
 volatile unsigned long encoderState = 0; // use volatile for shared variables
@@ -83,8 +89,6 @@ volatile signed long xEncoder = 0; // This is the position based on counting enc
 volatile signed long yEncoder = 0; // This is the position based on counting encoder pulses
 volatile signed long xSpeed = 0; // This is the position based on counting encoder pulses
 volatile signed long ySpeed = 0; 
-volatile signed long flashxSpeed = 0;
-volatile signed long flashySpeed = 0;
 volatile signed long lastxEncoder = 0;
 volatile signed long lastyEncoder = 0;
 volatile signed long pulse_deg = 5;
@@ -92,28 +96,26 @@ volatile signed long elapsedtime = 0;
 
 volatile signed long xSetPoint = 0; // this is where the PID loop will try to move the axis
 volatile signed long ySetPoint = 0;
-volatile signed long xTarget = 0;
-volatile signed long yTarget = 0;
 
-//Variables only for printing 
-volatile signed long Output1=0; // for PID loops
-volatile signed long Output2=0; // for PID loops
 
 unsigned int count1 = 0;  // so that the encoder counting is faster than the PID updating
 unsigned int channelCount = 0;  // 
-unsigned int speedcounter = 0;
-signed long xki=1024;  // PID integration constant
-signed long xkp=1024;  // PID proportional constant
-signed long xkd=1024;  // PID derivative constant
+
+volatile signed long xki=1024;  // PID integration constant
+volatile signed long xkp=1024;  // PID proportional constant
+volatile signed long xkd=1024;  // PID derivative constant
 signed long xITerm=0;
 signed long xLastInput=0;
 
-signed long yki=1024;  // PID integration constant
-signed long ykp=1024;  // PID proportional constant
-signed long ykd=1024;  // PID derivative constant
+volatile signed long yki=1024;  // PID integration constant
+volatile signed long ykp=1024;  // PID proportional constant
+volatile signed long ykd=1024;  // PID derivative constant
 signed long yITerm=0;
 signed long yLastInput=0;
 
+
+String inputString = ""; 
+boolean stringComplete = false;
 
 //All things MotorHat Related
 // Create the motor shield object with the default I2C address
@@ -128,7 +130,9 @@ void motorsStop(){
 void setup() {
 
   Serial.begin(115200);  
+  serialcommand.reserve(200);
   AFMS.begin();  // create with the default frequency 1.6KHz
+ 
   pinMode(xQ1Pin, INPUT);  
   pinMode(xQ2Pin, INPUT);  
   
@@ -138,7 +142,6 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   
   /* move all the motors weakly negative for 2 seconds to home them.  Do this better later */
-  
   leftMotor->run(FORWARD);
   rightMotor->run(FORWARD);
   for (int i=0; i<100; i++) {
@@ -153,6 +156,8 @@ void setup() {
     rightMotor->setSpeed(i);    
     delay(10);
   }
+  leftMotor->setSpeed(0);
+  rightMotor->setSpeed(0);    
   leftMotor->run(RELEASE);
   rightMotor->run(RELEASE);
 }
@@ -165,162 +170,198 @@ void encoderUpdate(void) {
   signed long pwm_output=0; // for PID loops
   signed long error = 0;
   signed long dInput = 0;
-  
-  nowState = (digitalReadFast(xQ2Pin)<<1) | digitalReadFast(xQ1Pin)      | (digitalReadFast(yQ2Pin)<<5)  | (digitalReadFast(yQ1Pin)<<4);
-
+ 
+  nowState = (digitalReadFast(xQ2Pin)<<1) | digitalReadFast(xQ1Pin) | (digitalReadFast(yQ2Pin)<<5) | (digitalReadFast(yQ1Pin)<<4);
   encIndex= nowState | (encoderState << 2);
-             
   xEncoder = xEncoder + enc_TAB[ (encIndex >> 0) & 0x0f];  // these 4 lines take about 0.7 microseconds, maybe can be optimized
   yEncoder = yEncoder + enc_TAB[ (encIndex >> 4) & 0x0f];
-
   encoderState = nowState; 
 
-  elapsedtime += dt; 
-  xSpeed = (xEncoder/pulse_deg)/(elapsedtime/1000000);///elapsedtime);
-  ySpeed = (yEncoder/pulse_deg)/(elapsedtime/1000000);///elapsedtime);
-   
-  count1++;
-  if (count1 >= 1000/dt) {  // aiming for 1 khz update rate
-    count1 = 0; // restart the count
-  
-    channelCount++;
-    if (channelCount >=2) {
-     channelCount = 0;
+  elapsedtime++;
+  if (elapsedtime*dT % (1000000/VELOCITY_SAMPLING_RATE) == 0){
+
+    if(modeAngular){
+       xSpeed =  w_w2w_ratio*(xEncoder-lastxEncoder); 
+       ySpeed =  w_w2w_ratio*(yEncoder-lastyEncoder);    
     }
-    switch (channelCount) 
-    {  // actually each channel has its PID updated at 250Hz, which seems faste enough so far.
-      
-      case 0: // x channel
-        switch(mode){
-          case POSITION:
-            error = xSetPoint - xEncoder;
-            dInput = xEncoder - xLastInput;
-          break;
-          case VELOCITY:
-            error = xSetPoint - xSpeed;
-            dInput = xSpeed - xLastInput;
-          break;
-        }
-        
-        xITerm+= (xki * error*1024);  // scaling for fixed point 
-        
-        if(xITerm > xoutMax*1024) xITerm= xoutMax*1024;
-        else if(xITerm < xoutMin*1024) xITerm= xoutMin*1024;
-   
-        pwm_output = (xkp * error + xITerm- xkd * (dInput))/1024;
-       
-        if(pwm_output > xoutMax) pwm_output = xoutMax;
-        else if (pwm_output < xoutMin) pwm_output = xoutMin;
-        
-        leftMotor->setSpeed(abs(pwm_output)); 
-        switch(mode){
-          case POSITION:
-            xLastInput = xEncoder;
-          break;
-          case VELOCITY:
-            xLastInput = xSpeed;
-          break;
-        }
-      break;
-      
-      // y channel
-      case 1:
-      
-        switch(mode){
-          case POSITION:
-            error = ySetPoint - yEncoder;
-            dInput = yEncoder - yLastInput;
-          break;
-          case VELOCITY:
-            error = ySetPoint - ySpeed;
-            dInput = ySpeed - yLastInput;
-        }
-        
-        yITerm+= (yki * error*1024);  // scaling for fixed point         
-        if(yITerm > youtMax*1024) yITerm= youtMax*1024;
-        else if(yITerm < youtMin*1024) yITerm= youtMin*1024;
-   
-        pwm_output = (ykp * error + yITerm- ykd * (dInput))/1024;
-       
-        if(pwm_output > youtMax) pwm_output = youtMax;
-        else if (pwm_output < youtMin) pwm_output = youtMin;
-        
-        
-        rightMotor->setSpeed(abs(pwm_output));     
-        switch(mode){
-          case POSITION:
-            yLastInput = yEncoder;
-          break;
-          case VELOCITY:
-            yLastInput = ySpeed;
-          break;
-        }     
-      break;
-     
+    else{
+       xSpeed = (xEncoder-lastxEncoder); 
+       ySpeed = (yEncoder-lastyEncoder); 
     }
+    lastxEncoder=xEncoder;
+    lastyEncoder=yEncoder;
+    elapsedtime=0;
   }
   
+  count1++;
+  
+  if (count1 >= freqRate) {  // aiming for 1 khz update rate
+  count1 = 0; // restart the count
+  channelCount++;
+      if (channelCount >=2) {
+      channelCount = 0;
+      }
+      switch (channelCount) 
+      {  // actually each channel has its (freqRate/2) Hz proportionate to its requirements
+      
+              case 0: // x channel
+              
+                    switch(mode){
+                      case POSITION:
+                        error = xSetPoint - xEncoder;
+                        dInput = xEncoder - xLastInput;
+                      break;
+                      case VELOCITY:
+                        error = xSetPoint - xSpeed;
+                        dInput = xSpeed - xLastInput;  
+                      break;
+                    }
+                    
+                    xITerm+= (xki * error*1024);  // scaling for fixed point 
+                    
+                    if(xITerm > xoutMax*1024) xITerm= xoutMax*1024;
+                    else if(xITerm < xoutMin*1024) xITerm= xoutMin*1024;
+                    
+                    pwm_output = (xkp * error + xITerm- xkd * (dInput))/1024;
+                    
+                    if(pwm_output > xoutMax) pwm_output = xoutMax;
+                    else if (pwm_output < xoutMin) pwm_output = xoutMin;
+                    
+                    leftMotor->setSpeed(abs(pwm_output)); 
+                    
+                    switch(mode){
+                      case POSITION:
+                        xLastInput = xEncoder;
+                      break;
+                      case VELOCITY:
+                        xLastInput = xSpeed;
+                      break;
+                    }
+              break;
+              
+              // y channel
+              case 1:
+              
+                    switch(mode){
+                      case POSITION:
+                        error = ySetPoint - yEncoder;
+                        dInput = yEncoder - yLastInput;
+                      break;
+                      case VELOCITY:
+                        error = ySetPoint - ySpeed;
+                        dInput = ySpeed - yLastInput;
+                    }
+                    
+                    yITerm+= (yki * error*1024);  // scaling for fixed point         
+                    if(yITerm > youtMax*1024) yITerm= youtMax*1024;
+                    else if(yITerm < youtMin*1024) yITerm= youtMin*1024;
+                    
+                    pwm_output = (ykp * error + yITerm- ykd * (dInput))/1024;
+                    
+                    if(pwm_output > youtMax) pwm_output = youtMax;
+                    else if (pwm_output < youtMin) pwm_output = youtMin;
+                         
+                    rightMotor->setSpeed(abs(pwm_output));   
+                      
+                    switch(mode){
+                      case POSITION:
+                        yLastInput = yEncoder;
+                      break;
+                      case VELOCITY:
+                        yLastInput = ySpeed;
+                      break;
+                    }     
+              break;    
+      }
+  }
 
 }
 
 void loop() {
   
-  signed long copy_xEncoder= 0;
-  signed long copy_yEncoder= 0;
-  
+    signed long copy_xEncoder= 0;
+    signed long copy_yEncoder= 0;
+    float value = 0;
     cli(); // disable interrupt
-            copy_xEncoder = xSpeed;
-            copy_yEncoder = ySpeed; 
+      copy_xEncoder = xSpeed;
+      copy_yEncoder = ySpeed; 
     sei(); // reenable the interrupt 
-
-    sprintf(msg,"%ld\t%ld", copy_xEncoder, copy_yEncoder);
+    
+    if(modeAngular){
+        sprintf(msg,"%ld\t%ld", copy_xEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG_BASE, copy_yEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG_BASE);
+    }
+    else{
+        sprintf(msg,"%ld\t%ld", copy_xEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG, copy_yEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG);
+    }
+    
     Serial.println(msg);
-    //incoming command handler
-    if(Serial.available()>0){
-      serialcommand = Serial.readString();
-      header = serialcommand.substring(0, serialcommand.indexOf(" "));
-      values = serialcommand.substring(serialcommand.indexOf(" ") , serialcommand.length()+1);
-      value = values.toFloat();
-      Serial.println(value);
-      
-      if (header == "stop" ){
-        encoder.end();
-        Serial.println("Stopping motors");
-        motorsStop();
-      }
-      else if (header == "goto"){       
-        setPoint(POSITION, (value/circumference)  * encoders_wheelrotation, -(value/circumference)  * encoders_wheelrotation);
-        encoder.end();    
-        setDirection();
-        encoder.begin(encoderUpdate, dt);  // blinkLED to run every 166 microsecond ±6 KHz
-      }
-      else if (header == "turn"){
-        setPoint(POSITION, -(value/360)  * encoders_baserotation, -(value/360)  * encoders_baserotation);
-        encoder.end();    
-        setDirection();
-        encoder.begin(encoderUpdate, dt);  // blinkLED to run every 166 microsecond ±6 KHz
-      }
-      else if (header == "speed"){
-        char logg[16];
-        sprintf(logg,"Setting speed to %d", value);
-        Serial.println(logg);
-        setPoint(VELOCITY, value,-value);
-        encoder.end();
-        setDirection(); 
-        encoder.begin(encoderUpdate, dt);  // blinkLED to run every 166 microsecond ±6 KHz
-      } 
-      else if(header == "gains"){
-        char logg[16];
-        signed long kpi,kii, kdi;
-        sscanf(values.c_str(),"%ld %ld %ld", &kpi,&kii,&kdi);
-        sprintf(logg ,"Setting PID to %ld %ld %ld", kpi,kii, kdi);
-        setGains(kpi,kii, kdi);
-        Serial.println(logg);
-      }
-  }
-  delay(50);  
+    
+    if (stringComplete) {
+        header = serialcommand.substring(0, serialcommand.indexOf("_"));
+        values = serialcommand.substring(serialcommand.indexOf("_")+1 , serialcommand.length());
+        value = values.toFloat();
+        
+        if (header == "stop" ){
+          encoder.end();
+          motorsStop();      
+        }
+        else if (header == "goto"){       
+          setPoint(POSITION, false, (value/circumference)  * encoders_wheelrotation, -(value/circumference)  * encoders_wheelrotation);
+          encoder.end();    
+          setDirection();
+          encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz
+        }
+        else if (header == "turn"){
+          setPoint(POSITION, false, -(value/360)  * encoders_baserotation, -(value/360)  * encoders_baserotation);
+          encoder.end();    
+          setDirection();
+          encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz
+        }
+        else if (header == "speed"){
+          //Divide the value from deg/s to the sampling rate
+          value = PULSE_DEG*value/VELOCITY_SAMPLING_RATE; 
+          setPoint(VELOCITY, false,  value, -value);   
+          encoder.end();
+          setDirection(); 
+          encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz
+          } 
+        else if (header == "spin"){
+          //Divide the value from deg/s to the sampling rate
+          value = PULSE_DEG_BASE*value/VELOCITY_SAMPLING_RATE; 
+          setPoint(VELOCITY, true, -value, -value);  
+          encoder.end();
+          setDirection(); 
+          
+          encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz    
+        } 
+        else if(header == "gains"){
+          char logg[16];
+          signed long kpi,kii, kdi;
+          sscanf(values.c_str(),"%ld %ld %ld", &kpi,&kii,&kdi);
+          sprintf(logg ,"Setting PID to %ld %ld %ld", kpi,kii, kdi);
+          Serial.println(logg);
+          setGains(kpi,kii, kdi);
+        }
+        // clear all strings
+        serialcommand = "";
+        stringComplete = false;
+        header ="";
+    }
+    
+    delay(10);  
 }
 
+void setFreqRate(int mode){
+  //Varies the feedforward rate - assumes the motors will get (freqRate/2) Hz e.g. if 50Hz is desired Feedforward rate, estimate for 100Hz
+  switch(mode){
+    case POSITION:
+      freqRate=1000/dT;// aiming for 1 khz update rate
+    break;
+    case VELOCITY:
+      freqRate=(1000/(2*VELOCITY_SAMPLING_RATE)*1000)/dT;// aiming for 100hz update rate
+    break;
+  }
+}
 void setGains(signed long kp, signed long ki,signed long kd){
    cli();
      xkp = ykp = kp;
@@ -328,9 +369,11 @@ void setGains(signed long kp, signed long ki,signed long kd){
      xkd = ykd = kd;
    sei();
 }
-void setPoint(int mode_in, signed long value_left, signed long value_right){
+void setPoint(int mode_in, bool angular_mode, signed long value_left, signed long value_right){
    cli();
       mode = mode_in;
+      setFreqRate(mode);
+      modeAngular = angular_mode;
       xEncoder = 0 ;
       yEncoder = 0 ;  
       elapsedtime = 0;
@@ -345,34 +388,49 @@ void setDirection(){
    leftMotor->run(RELEASE);
    rightMotor->run(RELEASE); 
    if (xSetPoint- xEncoder < 0 && xSetPoint < xEncoder) {
-          Serial.println("Driving backward");
           xoutMin = -max_pwm;
           xoutMax = 0;
           leftMotor->run(BACKWARD);
-          
         }
         //Turn forward
         else if (xSetPoint-xEncoder > 0 && xSetPoint > xEncoder) {
-          Serial.println("Driving forward");
           xoutMin = 0;
           xoutMax = max_pwm;
           leftMotor->run(FORWARD);
         }
 
         if (ySetPoint- yEncoder < 0 && ySetPoint < yEncoder) {
-          Serial.println("Driving backward");
           youtMin = -max_pwm;
           youtMax = 0;
           rightMotor->run(BACKWARD);
         }
         //Turn forward
         else if (ySetPoint-yEncoder > 0 && ySetPoint > yEncoder) {
-          Serial.println("Driving forward");
           youtMin = 0;
           youtMax = max_pwm;
           rightMotor->run(FORWARD);
         }
 }
+
+
+void serialEvent(){
+
+    while (Serial.available()) {
+      // get the new byte:
+      char inChar = (char)Serial.read();
+      // add it to the inputString:
+      serialcommand += inChar;
+      // if the incoming character is a newline, set a flag
+      // so the main loop can do something about it:
+      if (inChar == '\n') {
+        stringComplete = true;
+        //Serial.print("Sometime arrived");
+      }
+    }
+   
+}
+
+
 // see.stanford.edu/materials/aiircs223a/handout6_Trajectory.pdf
 // developer.mbed.org/cookbook/PID
 // brettbeauregard.com/blog/2011/04/improving-the-beginners-pid-introduction/
