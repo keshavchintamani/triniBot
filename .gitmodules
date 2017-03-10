@@ -4,3 +4,6 @@
 [submodule "usb_cam"]
 	path = usb_cam
 	url = https://github.com/bosch-ros-pkg/usb_cam.git
+[submodule "ORB_SLAM2"]
+	path = ORB_SLAM2
+	url = https://github.com/raulmur/ORB_SLAM2.git
