@@ -1,17 +1,15 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(trinbot_core)
+project(trinibot_core)
 
-find_package(catkin REQUIRED COMPONENTS message_generation std_msgs sensor_msgs opencv)
+find_package(catkin REQUIRED COMPONENTS message_generation std_msgs tf actionlib_msgs)
 
-add_message_files(
-  DIRECTORY msg
-  FILES
-  #ballcoords.msg
-  #command.msg
-  )
-
+add_action_files(
+	DIRECTORY action
+	FILES goto_distance.action
+)
 catkin_python_setup()
+generate_messages(DEPENDENCIES std_msgs actionlib_msgs)
+catkin_package(	CATKIN_DEPENDS std_msgs message_runtime tf actionlib_msgs	)
 
-generate_messages(DEPENDENCIES std_msgs sensor_msgs)
 
-catkin_package(	CATKIN_DEPENDS message_runtime std_msgs)
+
