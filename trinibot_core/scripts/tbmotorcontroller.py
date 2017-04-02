@@ -154,41 +154,43 @@ class TrackedTrinibot():
         sh.setLevel(logging.DEBUG)
         self.logger.addHandler(sh)
 
+    def addnewline(self, str):
+        return (str+"\n")
 
     def drive_at_speed(self, target_speed=300.0):
-       command = "speed"+ " " + str(target_speed)
+       command = "speed_"+ " " + self.addnewline(str(target_speed))
+       self.logger.info(command);
+       self.serial.writeserial(command)
+       return(True) 
+
+    def turn_at_rate(self, target_speed=300.0):
+       command = "speed_"+ " " + self.addnewline(str(target_speed))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True) 
 
     def drive_to_distance(self, target_distance=188.49):
-       command = "goto"+ " " + str(target_distance)
+       command = "goto_"+ " " + self.addnewline(str(target_distance))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True)
 
     def turn_to_angle(self, target_angle=45):
-       command = "turn"+ " " + str(target_angle)
+       command = "turn_"+ " " + self.addnewline(str(target_angle))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True)
 
     def stop(self):
-       command = "stop"
+       command = addnewline("stop_")
        self.serial.writeserial(command)
        return(True)
 
-    def setKp(self, kp):
-       self.Kp = float(kp)
+    def setgains(self, kp, ki, kd):
+       command = "gains_"+" " + self.addnewline(str(kp)+" "+str(ki)+" "+str(kd))
+       self.serial.writeserial(command)
        logger.info("Kp=%f", self.Kp)
 
-    def setKi(self, ki):
-       self.Ki = float(ki)
-       logger.info("Ki=%f", self.Ki)
-
-    def setKd(self, kd):
-       self.Kd = float(kd)
-       logger.info("Kd=%f", self.Kd)
 
 def main_automation():
     global myrobot, logger
