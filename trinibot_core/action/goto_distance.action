@@ -1,0 +1,18 @@
+#This is an action definition file, which has three parts: the goal, the result, and the feedback.
+
+#The Goal
+#The distance we want the robot to drive (signed int)
+int32 target_distance
+---
+#Result
+#Distance travelled so far
+int32 travelled_distance
+
+---
+#Feedback 
+int32 elapsed_distance
+int32 elapsed_time_secs
+int32 speed
+bool blocked
+
+
