@@ -9,6 +9,6 @@ echo $ROS_MASTER_URI
 source /usr/local/bin/virtualenvwrapper.sh
 source /opt/ros/kinetic/setup.bash
 source /home/kc/sandbox/external-rospacks/devel/setup.bash
-workon trinibot-dev
+#workon trinibot-dev
 exec "$@"
 

@@ -1,11 +1,14 @@
 <launch>
 <env name="ROS_MASTER_URI" value="http://192.168.1.15:11311"/> 
-<machine name="kc" address="192.168.1.15" user="kc" env-loader="~/sandbox/envloader.sh" timeout="10.0" default="true" />
-<machine name="raspberrypi" address="192.168.1.6" user="pi" env-loader="/home/pi/rosenv.sh" timeout="10.0" default="never" />
-<node pkg="cv_camera" type="cv_camera_node" name="cv_camera"  machine ="raspberrypi" respawn="false" output="screen">
-<remap from="/cv_camera/image_raw" to="/trinibot/image_raw" />
-</node>
-<node pkg="image_view" type="image_view" name="image_viewer"  machine ="kc" respawn="false" output="screen">
-<remap from="/image" to="/trinibot/image_raw"/>
-</node>
+<machine name="kc" address="192.168.1.15" user="kc" env-loader="~/sandbox/external-rospacks/src/trinibot_core/laptop_envloader.sh" timeout="10.0" default="true" />
+<machine name="raspberrypi" address="192.168.1.6" user="pi" env-loader="~/external-rospacks/src/trinibot_core/pi_envloader.sh" timeout="10.0" default="never" />
+ <node pkg="usb_cam" type="usb_cam_node" name="trinibot_camera" args="_autofocus=1 _image_width:=320 _image_height:=240 _pixel_format:=&quot;yuyv&quot;" machine ="raspberrypi" respawn="false" output="screen">
+    </node>
+
+    <node pkg="trinibot_core" type="tbimageflip.py" name="imageflip" machine ="kc" respawn="false" output="screen" >
+        <remap from="/image_raw" to="/trinibot_camera/image_raw"  />
+        <remap from="/camera_info" to= "/trinibot_camera/camera_info"  />
+    </node>
+    <node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/trinibot_camera/image_flipped/image_raw" machine ="kc" respawn="false" output="screen" />
+
 </launch>
