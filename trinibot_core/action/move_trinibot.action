@@ -1,0 +1,19 @@
+#This is an action definition file, which has three parts: the goal, the result, and the feedback.
+
+#The Goal
+#The distance we want the robot to drive (signed int)
+string objective #goto, turn, spin, speed
+int32 value
+---
+#Result
+#Distance travelled so far
+bool success 
+---
+#Feedback 
+int32 xerror
+int32 yerror
+int32 xspeed
+int32 yspeed
+
+
+
