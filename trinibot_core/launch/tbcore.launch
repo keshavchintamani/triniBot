@@ -15,7 +15,7 @@
     <node pkg="usb_cam" type="usb_cam_node" name="trinibot_camera" args="_autofocus=1 _image_width:=320 _image_height:=240 _pixel_format:=&quot;yuyv&quot;" machine ="raspberrypi" respawn="false" output="screen">
     </node>
 
-       <node pkg="trinibot_core" type="tbimageflip.py" name="imageflip" machine ="raspberrypi" respawn="false" output="screen" >
+    <node pkg="trinibot_core" type="tbimageflip.py" name="imageflip" machine ="kc" respawn="false" output="screen" >
         <remap from="/image_raw" to="/trinibot_camera/image_raw"  />
         <remap from="/camera_info" to= "/trinibot_camera/camera_info"  />
     </node>
@@ -28,7 +28,8 @@
 
     <!-- Motion control -->
 
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyAMA0" name="robotcontroller" machine="raspberrypi" respawn="false" output="screen" />
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0" name="robotcontroller" machine="raspberrypi" respawn="false" output="screen" />
+    <node pkg="trinibot_core" type="tbactiongenerator.py" args="/dev/ttyACM0" name="kinematicstoactionmapper" machine="kc" respawn="false" output="screen" />
     <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="kc" respawn="false" output="screen" />
 
     <!-- Sensors -->
@@ -55,8 +56,8 @@
     </node>
 
     <!--<node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/trinibot_camera/image_raw" machine ="kc" respawn="false" output="screen" />-->
-    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/aruco_single/result" machine ="kc" respawn="false" output="screen" />
-
+    <!--<node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/aruco_single/result" machine ="kc" respawn="false" output="screen" /> -->
+    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/trinibot_camera/image_flipped/image_raw" machine ="kc" respawn="false" output="screen" />
 
 </launch>
 
