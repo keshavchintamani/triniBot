@@ -5,33 +5,38 @@ import roslib
 import random
 import time as Time
 import Tkinter
+import atexit
+import tf_conversions as conversions
+import actionlib
+from trinibot_core.msg import  move_trinibotAction, move_trinibotGoal
 
 roslib.load_manifest('trinibot_core')
 
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, PoseStamped
 
 class robotGUI_tk(Tkinter.Tk):
 
-    def __init__(self,parent):
+    def __init__(self, parent):
+        global client
         Tkinter.Tk.__init__(self, parent)
         self.parent = parent
         self.initialize()
-        self.pub = rospy.Publisher('/tbmotionplanner/Twist', TwistStamped, queue_size=10)
 
     def initialize(self):
-        self.grid()
 
+        self.grid()
+        self.speedmodeVar = 0
         labelStatus = Tkinter.Label(self,  text = u"Status", anchor="w", fg="white", bg ="blue")
         labelStatus.grid(column=0, row=0, sticky='EW')
 
         self.angleEntryVar = Tkinter.StringVar(value="30")
 
-        labelAngle = Tkinter.Label(self, text = u"Angle", anchor="w", fg="white", bg ="blue")
+        labelAngle = Tkinter.Label(self, text = u"Angular", anchor="w", fg="white", bg ="blue")
         labelAngle.grid(column=0, row=1, sticky='EW')
 
         self.distanceEntryVar = Tkinter.StringVar(value="100")
 
-        labelSpeed = Tkinter.Label(self, text = u"Speed", anchor="w", fg="white", bg ="blue")
+        labelSpeed = Tkinter.Label(self, text = u"Linear", anchor="w", fg="white", bg ="blue")
         labelSpeed.grid(column=0, row=2, sticky='EW')
 
         distanceentry = Tkinter.Entry(self, textvariable = self.distanceEntryVar )
@@ -41,6 +46,11 @@ class robotGUI_tk(Tkinter.Tk):
         angleentry = Tkinter.Entry(self, textvariable = self.angleEntryVar )
         angleentry.grid(column=1, row = 1, sticky='EW')
         angleentry.bind("<Return>", self.OnAnglePressEnter)
+
+        self.speedmodeVar = Tkinter.IntVar()
+
+        checkButton = Tkinter.Checkbutton(self, text=u"Rate control", variable=self.speedmodeVar, command = self.modecallback)
+        checkButton.grid(column=1, row=3)
 
         self.grid()
 
@@ -59,59 +69,71 @@ class robotGUI_tk(Tkinter.Tk):
         bbutton = Tkinter.Button(self, text=u"back", command = self.OnBackButtonClick)
         bbutton.grid(column=3, row = 3)
 
+    def modecallback(self):
+        self.speedmodeVar = not self.speedmodeVar
+
     def OnDistancePressEnter(self,event):
         print "You pressed  %s" % self.distanceEntryVar.get()
 
     def OnAnglePressEnter(self,event):
         print "You pressed  %s" % self.angleEntryVar.get()
 
+    def pushGoal(self, objective, value):
+        #client.cancel_goal()
+        goal = move_trinibotGoal()
+        goal.objective = objective
+        goal.value = value
+        rospy.loginfo(goal)
+        client.send_goal(goal,done_cb = self.done_callback, feedback_cb=self.feeback_callback)
+
+    def feeback_callback(self, feedback):
+        rospy.loginfo("Received result: %s", feedback)
+
+    def done_callback(self, result1, result2):
+        rospy.loginfo("Received result: %s", result1)
+        rospy.loginfo("Received result: %s", result2)
+
+
     def OnForwardButtonClick(self):
-        self.publish_command("LINEAR",self.distanceEntryVar.get())
+        if self.speedmodeVar == 1:
+            objective = "speed"
+        else:
+            objective = "goto"
+        self.pushGoal(objective, int(self.distanceEntryVar.get()))
 
     def OnLeftButtonClick(self):
-        self.publish_command("ANGULAR",self.angleEntryVar.get())
+        if self.speedmodeVar == 1:
+            objective = "spin"
+        else:
+            objective = "turn"
+        self.pushGoal(objective, int(self.angleEntryVar.get()))
 
     def OnRightButtonClick(self):
-        self.publish_command("ANGULAR",-int(self.angleEntryVar.get()))
+        if self.speedmodeVar == 1:
+            objective = "spin"
+        else:
+            objective = "turn"
+        self.pushGoal(objective, -1 * int(self.angleEntryVar.get()))
 
     def OnBackButtonClick(self):
-        self.publish_command("LINEAR", -int(self.distanceEntryVar.get()))
+        if self.speedmodeVar == 1:
+            objective = "speed"
+        else:
+            objective = "goto"
+        self.pushGoal(objective, -1*int(self.distanceEntryVar.get()))
 
     def OnStopButtonClick(self):
-        self.publish_command("STOP", 0)
+        self.pushGoal("stop", 0)
 
-    def gracefullyExit(self):
-        #Stop the motors
-        self.publish_command("STOP", 0)
-
-    def publish_command(self,direction, value):
-
-        msg = TwistStamped()
-        msg.twist.linear.x = msg.twist.linear.y = msg.twist.linear.z = 0
-        msg.twist.angular.x = msg.twist.angular.y = msg.twist.angular.z = 0
-        if (direction == "LINEAR"):
-            msg.header.frame_id= direction
-            msg.twist.linear.x = value
-        elif (direction == "ANGULAR"):
-            msg.header.frame_id = direction
-            msg.twist.angular.z = value
-        elif (direction == "STOP"):
-            msg.header.frame_id = direction
-            msg.twist.angular.z = value
-
-        rospy.loginfo("Test: Publishing: %s", msg)
-        self.pub.publish(msg)
 
 if __name__ == '__main__':
     try:
         rospy.init_node('teleop_gui', anonymous=True)
-        while not rospy.is_shutdown():
-            rospy.loginfo("Doing something")
-            Time.sleep(2)
-        #app = robotGUI_tk(None)
-        #app.title('triniBot UI')
-        #app.mainloop()
-        #atexit.register(app.gracefullyExit)
+        client = actionlib.SimpleActionClient('tbmotioncontroller', move_trinibotAction)
+        client.wait_for_server()
+        app = robotGUI_tk(None)
+        app.title('triniBot Teleoperation Controls')
+        app.mainloop()
 
     except rospy.ROSInterruptException:
-	pass
+        pass

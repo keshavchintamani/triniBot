@@ -11,16 +11,19 @@ def Start():
     rospy.init_node('sense_hat', anonymous=True)
     
     #Setup the publishers
-    temp_pub = rospy.Publisher("/sensehat/temperature", Temperature, queue_size= 10)
-    humidity_pub = rospy.Publisher("/sensehat/humidity", RelativeHumidity, queue_size= 10)
-    pose_pub = rospy.Publisher("/sensehat/pose", Imu, queue_size= 10)
-    compass_pub = rospy.Publisher("/sensehat/compass", MagneticField, queue_size=10)
+    temp_pub = rospy.Publisher("/trinibot_sensors/temperature", Temperature, queue_size= 10)
+    humidity_pub = rospy.Publisher("/trinibot_sensors/humidity", RelativeHumidity, queue_size= 10)
+    pose_pub = rospy.Publisher("/trinibot_sensors/pose", Imu, queue_size= 10)
+    compass_pub = rospy.Publisher("/trinibot_sensors/compass", MagneticField, queue_size=10)
     
     r = rospy.Rate(10) # 10hz
-    
+    gyro = Imu()
+    temp = Temperature()
+    humid = RelativeHumidity()
+    compass = MagneticField()
     while not rospy.is_shutdown():
         #get the gyro values
-        gyro = Imu()
+
         gyro.angular_velocity.x = sense.get_gyroscope()['pitch']
         gyro.angular_velocity.y = sense.get_gyroscope()['roll']
         gyro.angular_velocity.z = sense.get_gyroscope()['yaw']
@@ -32,16 +35,11 @@ def Start():
         gyro.linear_acceleration.z = sense.get_accelerometer_raw()['z']
         
         #get temperature
-        temp = Temperature()
-        temp.temperature = sense.get_temperature_from_pressure()
-        
-        #get humidity 
-        humid = RelativeHumidity()
+        temp.temperature = sense.get_temperature()
+        #get humidity
         humid.relative_humidity = sense.get_humidity()
-
         #get compass
-        compass = MagneticField()
-        compass.magnetic_field = 0 #senseHat.get_compass_raw().values()
+        compass.magnetic_field = sense.get_compass_raw()
 
         temp_pub.publish(temp)
         humidity_pub.publish(humid)

@@ -1,103 +1,31 @@
 #!/usr/bin/env python
-import platform
-import atexit
 
-#Very Pi imports
-from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor
-#from tbAnalogSensors.py import SPIAnalog
-import time as Time
 import atexit
 import threading
+from threading import Timer
 import sys
 import time
-
 import serial
 import logging
 import re
 import signal
-
-#Plot include
-import numpy as np
-#Signal handler to kill active threads
-class SignalHandler:
-
-    stopper = None
-    workers = None
-
-    def __init__(self, stopper, workers):
-        self.stopper = stopper
-        self.workers = workers
-
-    def __call__(self, signum, frame):
-        self.stopper.set()
-        self.bot.Stop()
-        #for worker in self.workers:
-        #   worker.join()
-        logger.info("Ctrl-C pressed so exiting...")
-        sys.exit(0)
-
-    def SetRobot(self, bot):
-        self.bot = bot
-
-#Lowest level wrapper around MotorHat code from Adafruit.
-# A class to implement a controller for 1 to 4 DC motors at a given I2C address.
-# Works only with the Adafruit motorhat library...as
-class MotorHatDCMotorController():
-
-    def __init__(self, motors, i2caddress):
-        global Adafruit_MotorHat
-        self.mh = Adafruit_MotorHAT(addr=i2caddress)
-        allmotors=[1,2,3,4]
-        self.user_motors=motors
-        self.motor = {}
-        self.motor.fromkeys(allmotors)
-        for (i,x) in enumerate(self.user_motors):
-            if (x < 1 or x > 4):
-                logger.error("motor ID out of range")
-                return (False)
-            self.motor[x] = self.mh.getMotor(x)
-
-    def setDirection(self, mId, direction):
-
-        # Set the direction
-        if direction == "FORWARD":
-            self.motor[mId].run(Adafruit_MotorHAT.FORWARD)
-        elif direction == "REVERSE":
-            self.motor[mId].run(Adafruit_MotorHAT.BACKWARD)
-        else:
-            logger.error("Invalid direction provided")
-            return (False)
-
-    def runMotor(self, mId, dutycycle):
-        self.motor[mId].setSpeed(dutycycle)
-
-    def stopMotors(self):
-        print("Attemping to stop all motors")
-        for mId in self.user_motors:
-            self.motor[mId].run(Adafruit_MotorHAT.RELEASE)
-
-    # recommended for auto-disabling motors on shutdown!
-    def stopMotor(self, mId):
-        print "Releasing motor %s" % mId
-        self.motor[mId].run(Adafruit_MotorHAT.RELEASE)
-
-    def cleanClose():
-        self.stopMotors()
 
 class tBSerialReader():
 
     def __init__(self, devid):
 
         self.devid = devid
-        self.old_encoder_left=0
-        self.old_encoder_right=0
+        self.wspeed_left = 0
+        self.wspeed_right=0
+        self.error_left = 0
+        self.error_right = 0
         self._startserial()
 
     def _startserial(self):
 
         print("Trying to open Serial arduino: %s ", self.devid)
         try:
-            self.Serial = serial.Serial(self.devid, 9600)
+            self.Serial = serial.Serial(self.devid, 115200)
             time.sleep(1)
             pass
         except (IOError, ValueError):
@@ -110,14 +38,11 @@ class tBSerialReader():
         res = re.findall("[-+]?\d+[\.]?\d*", line)
         try:
             if len(res) > 1:
-                self.old_encoder_left  = int(res[0])
-                self.old_encoder_right = int(res[1])
-                return ((self.old_encoder_left, self.old_encoder_right))
+                return (res)
+
         except ValueError:
             logger.error("Value error exception parsing serial data")
-            #return((NoneType, NoneType))
-            pass 
-    #    return ((self.old_encoder_left, self.old_encoder_right))
+            pass
 
     def writeserial(self, message):
         try:
@@ -129,18 +54,15 @@ class tBSerialReader():
         return(False);
 
 #Documentation
-#TrackedTriniBot is a specialized tracked platform using the 150:1 micrometal gearmotors
-#It assumes certain dimensions of the wheels for its odometry
-#Changes to the wheels or transmision should be reflected in the parameters
+#Serial wrapper for the Teensy motor controller for Trinibot
 class TrackedTrinibot():
-    global logger
 
 
-    def __init__(self, serial = "/dev/ttyUSB0"):
-
-        self.Ki = 0.0
-        self.Kp = 0.01
-        self.Kd = 0.01
+    def __init__(self, feedback, serial = "/dev/ttyUSB0"):
+        global logger
+        self.Ki = 1
+        self.Kp = 10
+        self.Kd = 1
         self.logfileindex=0
         self.serial = tBSerialReader(serial)
         self.logger = logging.getLogger('encoder')
@@ -153,42 +75,51 @@ class TrackedTrinibot():
         sh.setFormatter(formatter)
         sh.setLevel(logging.DEBUG)
         self.logger.addHandler(sh)
+        self.callback = feedback
+        self.timerFlag = True
 
+    def addnewline(self, str):
+        return (str+"\n")
 
-    def drive_at_speed(self, target_speed=300.0):
-       command = "speed"+ " " + str(target_speed)
+    def drive_at_speed(self, target_speed=100.0):
+       command = "speed_"+ self.addnewline(str(target_speed))
+       self.logger.info(command);
+       self.serial.writeserial(command)
+       return(True) 
+
+    def turn_at_rate(self, target_rate=50.0):
+       command = "spin_" + self.addnewline(str(target_rate))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True) 
 
     def drive_to_distance(self, target_distance=188.49):
-       command = "goto"+ " " + str(target_distance)
+       command = "goto_" + self.addnewline(str(target_distance))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True)
 
     def turn_to_angle(self, target_angle=45):
-       command = "turn"+ " " + str(target_angle)
+       command = "turn_" + self.addnewline(str(target_angle))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True)
 
     def stop(self):
-       command = "stop"
+       command = self.addnewline("stop_")
        self.serial.writeserial(command)
        return(True)
 
-    def setKp(self, kp):
-       self.Kp = float(kp)
-       logger.info("Kp=%f", self.Kp)
+    def setgains(self, kp, ki, kd):
+       command = "gains_" + self.addnewline(str(kp)+" "+str(ki)+" "+str(kd))
+       self.serial.writeserial(command)
 
-    def setKi(self, ki):
-       self.Ki = float(ki)
-       logger.info("Ki=%f", self.Ki)
+    def get_feedback(self):
+        return(self.serial.readserial())
 
-    def setKd(self, kd):
-       self.Kd = float(kd)
-       logger.info("Kd=%f", self.Kd)
+    def exit(self):
+        self.stop()
+
 
 def main_automation():
     global myrobot, logger
