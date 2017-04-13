@@ -1,26 +1,28 @@
 
-/* code by fdavies
+/* 
+  Generic High frequency closed loop PID controller applicable for a range of precise two axis, brushed dc motor with quadrature encoder feedback 
+  for a two axis tracked robot based on the pololu micrometal covering:
+    - displacement (mm) control
+    - angular displacement (degrees turned)
+    - wheel turn rate (deg/sec) control
+    - platform (yaw) turn rate (deg/sec) control 
 
-   This example code is in the public domain.
-   
-   The goal is to have a complete 3D printer driver (gcode => motion)
-   that uses optical encoders and brushed DC motors.
+  Keshav Chintamani
+  keshav.chintamani@gmail.com
+  
+  Code extended from fdavies 
+  https://forum.pjrc.com/threads/26803-Hardware-Quadrature-Code-for-Teensy-3-x
+
+  This code is in the public domain.
 */
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_MS_PWMServoDriver.h"
-
-#include <MCP3008.h>
-
-
 // define pin connections
 #define CS_PIN 10
 #define CLOCK_PIN 13
 #define MOSI_PIN 12
 #define MISO_PIN 11
-
-// put pins inside MCP3008 constructor
-MCP3008 adc(CLOCK_PIN, MOSI_PIN, MISO_PIN, CS_PIN);
 
 // definition of how the pins are set up
 const int xQ1Pin = 15;  // pin for x axis quadrature encoder    J1 pin 4
@@ -73,6 +75,7 @@ String serialcommand, header, values;
 #define VELOCITY 1
 #define TURNRATE 1
 
+//dT 20 original
 #define dT 20 //Interrupt frequency in microseconds
 signed int PULSE_DEG = 5; //Number of encoder pulses per degree
 signed int PULSE_DEG_BASE = 13; //Round off - should be 12.38 insted
@@ -81,7 +84,7 @@ unsigned int freqRate=0;
   
 volatile unsigned int mode = POSITION; // by default set it to position tracking
 volatile bool modeAngular = false;
-char msg[16];
+char msg[32];
 
 volatile unsigned long encoderState = 0; // use volatile for shared variables
 
@@ -89,6 +92,8 @@ volatile signed long xEncoder = 0; // This is the position based on counting enc
 volatile signed long yEncoder = 0; // This is the position based on counting encoder pulses
 volatile signed long xSpeed = 0; // This is the position based on counting encoder pulses
 volatile signed long ySpeed = 0; 
+volatile signed int xError = 0;
+volatile signed int yError = 0;
 volatile signed long lastxEncoder = 0;
 volatile signed long lastyEncoder = 0;
 volatile signed long pulse_deg = 5;
@@ -237,6 +242,7 @@ void encoderUpdate(void) {
                         xLastInput = xSpeed;
                       break;
                     }
+                    xError = error;
               break;
               
               // y channel
@@ -270,7 +276,8 @@ void encoderUpdate(void) {
                       case VELOCITY:
                         yLastInput = ySpeed;
                       break;
-                    }     
+                    }
+                    yError = error;   
               break;    
       }
   }
@@ -279,19 +286,24 @@ void encoderUpdate(void) {
 
 void loop() {
   
-    signed long copy_xEncoder= 0;
-    signed long copy_yEncoder= 0;
+
     float value = 0;
-    cli(); // disable interrupt
-      copy_xEncoder = xSpeed;
-      copy_yEncoder = ySpeed; 
-    sei(); // reenable the interrupt 
     
+    cli(); // disable interrupt
+      signed int copy_xEncoder = xSpeed;
+      signed int copy_yEncoder = ySpeed;
+      signed int copy_xError = xError;
+      signed int copy_yError = yError;
+      float xPercentError = (float) 100*copy_xError/xSetPoint;
+      float yPercentError = (float) 100*copy_yError/ySetPoint;
+  
+    sei(); // reenable the interrupt 
+
     if(modeAngular){
-        sprintf(msg,"%ld\t%ld", copy_xEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG_BASE, copy_yEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG_BASE);
+        sprintf(msg,"%d\t%d\t%d\t%d", copy_xEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG_BASE, copy_yEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG_BASE, (int) xPercentError, (int) yPercentError);
     }
     else{
-        sprintf(msg,"%ld\t%ld", copy_xEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG, copy_yEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG);
+        sprintf(msg,"%d\t%d\t%d\t%d", copy_xEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG, copy_yEncoder*VELOCITY_SAMPLING_RATE/PULSE_DEG, (int) xPercentError, (int) yPercentError);
     }
     
     Serial.println(msg);
