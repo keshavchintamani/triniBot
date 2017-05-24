@@ -12,7 +12,9 @@ from trinibot_core.msg import  move_trinibotAction, move_trinibotGoal
 
 roslib.load_manifest('trinibot_core')
 
-from geometry_msgs.msg import TwistStamped, PoseStamped
+from geometry_msgs.msg import Twist, Pose
+from std_msgs.msg import String
+import tf.transformations as tf_T
 
 class robotGUI_tk(Tkinter.Tk):
 
@@ -34,7 +36,7 @@ class robotGUI_tk(Tkinter.Tk):
         labelAngle = Tkinter.Label(self, text = u"Angular", anchor="w", fg="white", bg ="blue")
         labelAngle.grid(column=0, row=1, sticky='EW')
 
-        self.distanceEntryVar = Tkinter.StringVar(value="100")
+        self.distanceEntryVar = Tkinter.StringVar(value="0.1")
 
         labelSpeed = Tkinter.Label(self, text = u"Linear", anchor="w", fg="white", bg ="blue")
         labelSpeed.grid(column=0, row=2, sticky='EW')
@@ -96,43 +98,58 @@ class robotGUI_tk(Tkinter.Tk):
 
     def OnForwardButtonClick(self):
         if self.speedmodeVar == 1:
-            objective = "speed"
+            t = Twist()
+            t.linear.x = float(self.distanceEntryVar.get())
+            vel_pub.publish(t)
         else:
-            objective = "goto"
-        self.pushGoal(objective, int(self.distanceEntryVar.get()))
+            p = Pose()
+            p.position.x = float(self.distanceEntryVar.get())
+            pose_pub.publish(p)
 
     def OnLeftButtonClick(self):
         if self.speedmodeVar == 1:
-            objective = "spin"
+            t = Twist()
+            t.angular.z = float(self.angleEntryVar.get())
+            vel_pub.publish(t)
         else:
-            objective = "turn"
-        self.pushGoal(objective, int(self.angleEntryVar.get()))
+            p = Pose()
+            p.orientation = tf_T.quaternion_from_euler(0, 0, 1 * float(self.angleEntryVar.get()), axes='sxyz')
+            pose_pub.publish(p)
 
     def OnRightButtonClick(self):
         if self.speedmodeVar == 1:
-            objective = "spin"
+            t = Twist()
+            t.angular.z = -1*float(self.angleEntryVar.get())
+            vel_pub.publish(t)
         else:
-            objective = "turn"
-        self.pushGoal(objective, -1 * int(self.angleEntryVar.get()))
+            p = Pose()
+            p.orientation = tf_T.quaternion_from_euler(0,0,-1*float(self.angleEntryVar.get()),axes='sxyz')
+            pose_pub.publish(p)
 
     def OnBackButtonClick(self):
         if self.speedmodeVar == 1:
-            objective = "speed"
+            t = Twist()
+            t.linear.x = -1*float(self.distanceEntryVar.get())
+            vel_pub.publish(t)
         else:
-            objective = "goto"
-        self.pushGoal(objective, -1*int(self.distanceEntryVar.get()))
+            p = Pose()
+            p.position.x = -1*float(self.distanceEntryVar.get())
+            pose_pub.publish(p)
 
     def OnStopButtonClick(self):
-        self.pushGoal("stop", 0)
+        stop = String()
+        stop = "STOP"
+        stop_pub.publish(stop)
 
 
 if __name__ == '__main__':
     try:
         rospy.init_node('teleop_gui', anonymous=True)
-        client = actionlib.SimpleActionClient('tbmotioncontroller', move_trinibotAction)
-        client.wait_for_server()
         app = robotGUI_tk(None)
         app.title('triniBot Teleoperation Controls')
+        pose_pub = rospy.Publisher("trinibot/Pose", Pose, queue_size=1)
+        vel_pub = rospy.Publisher("trinibot/Twist", Twist, queue_size=1)
+        stop_pub = rospy.Publisher("trinibot/String", String, queue_size=1)
         app.mainloop()
 
     except rospy.ROSInterruptException:

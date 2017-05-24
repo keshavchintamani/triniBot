@@ -29,7 +29,7 @@
 #define POSITION 0
 #define VELOCITY 1
 #define TURNRATE 1
-#define dT 20 //Interrupt timer in microseconds
+#define dT 50 //Interrupt timer in microseconds
 #define ZOOM 1
 #define PULSE_DEG 5 //Number of encoder pulses per degree
 #define PULSE_DEG_BASE 12.38 //Round off - should be 12.38 insted
@@ -50,10 +50,12 @@ const float circumference = 122.5221135; //mm
 const int encoders_wheelrotation = 1800; //pulses
 const int encoders_baserotation = 4459; //pulses
 
+#define D2R 0.0174533
+#define R2D 57.295
 //Constants used to convert speed and spin targets into pulses@velocity sampling rate
 
 //Converts speed in m/s to pulse@velocity sampling rate
-const float speed_constant = (float) PULSE_DEG*(57.295/(radius*pow(10,-3)))/VELOCITY_SAMPLING_RATE;
+const float speed_constant = (float) PULSE_DEG*(R2D/(radius*pow(10,-3)))/VELOCITY_SAMPLING_RATE;
 
 //Converts speed in deg/s to pulse@velocity sampling rate
 const float spin_constant = (float) (radius/base_radius)*PULSE_DEG_BASE/VELOCITY_SAMPLING_RATE;
@@ -81,6 +83,7 @@ volatile unsigned int mode = VELOCITY; // by default set it to velocity tracking
 volatile bool modeAngular = false;
 unsigned int actuationTimePeriod=0;
 volatile unsigned long encoderState = 0; // use volatile for shared variables
+volatile float error = 0;
 volatile signed long xEncoder = 0; // This is the position based on counting encoder pulses
 volatile signed long yEncoder = 0; // This is the position based on counting encoder pulses
 volatile float xSpeed = 0; // This is the position based on counting encoder pulses
@@ -108,6 +111,16 @@ volatile signed long ykp=1024;  // PID proportional constant
 volatile signed long ykd=1024;  // PID derivative constant
 
 volatile float pwm_output=0; // for PID loops
+
+//All odometry
+int time_last = millis(); 
+int time_now = millis();
+int dt =0;
+float w_now=0, w_last=0;
+float vx_now=0, vx_last=0;
+float vy_now=0, vy_last=0;
+float x=0,y=0, th=0;
+
 
 boolean fbswitch = false;
 //All things MotorHat Related
@@ -155,19 +168,48 @@ void setup() {
 
 void loop() {
   
-    float value = 0;
+    float value = 0; 
     cli(); // disable interrupt
       float copy_xSpeed = xSpeed;
-      float copy_ySpeed = ySpeed;   
+      float copy_ySpeed = ySpeed; 
+      long copy_xEncoder = xEncoder;
+      long copy_yEncoder = yEncoder; 
+      float copy_error = error; 
     sei(); // reenable the interrupt 
+    
     if(fbswitch){
-        if(modeAngular){
-          sprintf(msg,"%f\t%f", copy_xSpeed/spin_constant, copy_ySpeed/spin_constant);
+
+        //Calculate the elapsed time
+        time_now = millis();
+        int dt  = time_now - time_last; 
+      
+       /* if (mode == POSITION){
+           copy_error = copy_error/xSetPoint;
+           if(copy_error < 0.03 || copy_error > -0.03)
+              done_flag = 1;
+           else done_flag = 0;
+        }*/
+        if(modeAngular){         
+          //Calculate the difference in angular velocity and multiply it by dt to get degrees turned 
+          w_now = D2R*copy_xSpeed/spin_constant;
+          th += (w_now-w_last)*dt*pow(10,-6);
+          w_last = w_now;
+                  
         }else{
-          sprintf(msg,"%f\t%f", copy_xSpeed/speed_constant, copy_ySpeed/speed_constant);
-        }
+          vx_now = copy_xSpeed/speed_constant;
+          x = x + (vx_now-vx_last)*dt*pow(10,-6);
+          vx_last = vx_now;
+
+          vy_now = copy_xSpeed/speed_constant;
+          y = y + (vy_now-vy_last)*dt*pow(10,-6);
+          vy_last = vy_now;          
+        }               
+       
+        sprintf(msg,"%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\n", x, y, th, vx_now, vy_now, w_now);    
         Serial.println(msg);
+        time_last = time_now;         
     }
+    delay(10); 
     
     if (stringComplete) {
         header = serialcommand.substring(0, serialcommand.indexOf("_"));
@@ -206,7 +248,7 @@ void loop() {
         } 
         else if (header == "spin"){
           //Divide the value from deg/s to the sampling rate
-          value =spin_constant*value; 
+          value = spin_constant*value; 
           setPoint(VELOCITY, true, -value, -value);  
           encoder.end();
           setDirection();        
@@ -226,7 +268,7 @@ void loop() {
         stringComplete = false;
         header ="";
     }  
-    delay(10);  
+     
 }
 
 void feedbackSwitch(boolean state){
@@ -239,7 +281,7 @@ void encoderUpdate(void) {
   
   unsigned long nowState = 0 ;
   unsigned long encIndex =0;
-  float error = 0;
+  
   float dInput = 0;
 
   nowState = (digitalReadFast(xQ2Pin)<<1) | digitalReadFast(xQ1Pin) | (digitalReadFast(yQ2Pin)<<5) | (digitalReadFast(yQ1Pin)<<4);
@@ -357,8 +399,8 @@ void setPoint(int mode_in, bool angular_mode, float value_left, float value_righ
       mode = mode_in;
       setactuationTimePeriod(mode);
       modeAngular = angular_mode;
-      xEncoder = 0 ;
-      yEncoder = 0 ;  
+      //xEncoder = 0 ;
+      //yEncoder = 0 ;  
       elapsedtime = 0;
       xSetPoint =  value_left;
       ySetPoint =  value_right;
@@ -368,25 +410,25 @@ void setDirection(){
   
    leftMotor->run(RELEASE);
    rightMotor->run(RELEASE); 
-   if (xSetPoint- xEncoder < 0 && xSetPoint < xEncoder) {
+   if ((xSetPoint+xEncoder)- xEncoder < 0 && (xSetPoint+xEncoder) < xEncoder) {
           xoutMin = -max_pwm;
           xoutMax = 0;
           leftMotor->run(BACKWARD);
         }
         //Turn forward
-        else if (xSetPoint-xEncoder > 0 && xSetPoint > xEncoder) {
+        else if ((xSetPoint+xEncoder)-xEncoder > 0 && (xSetPoint+xEncoder) > xEncoder) {
           xoutMin = 0;
           xoutMax = max_pwm;
           leftMotor->run(FORWARD);
         }
 
-        if (ySetPoint- yEncoder < 0 && ySetPoint < yEncoder) {
+        if ((ySetPoint+yEncoder)- yEncoder < 0 && (ySetPoint+yEncoder) < yEncoder) {
           youtMin = -max_pwm;
           youtMax = 0;
           rightMotor->run(BACKWARD);
         }
         //Turn forward
-        else if (ySetPoint-yEncoder > 0 && ySetPoint > yEncoder) {
+        else if ((ySetPoint+yEncoder)-yEncoder > 0 && (ySetPoint+yEncoder) > yEncoder) {
           youtMin = 0;
           youtMax = max_pwm;
           rightMotor->run(FORWARD);

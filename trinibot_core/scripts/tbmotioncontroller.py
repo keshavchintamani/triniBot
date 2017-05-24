@@ -4,70 +4,58 @@
 
 import rospy
 import roslib
-import actionlib
-import time
 roslib.load_manifest('trinibot_core')
 import sys
+import tf_conversions
+import time
 
 from tbmotorcontroller import TrackedTrinibot
-from trinibot_core.msg import move_trinibotAction, move_trinibotFeedback, move_trinibotResult
+from geometry_msgs.msg import Twist, Pose
+from std_msgs.msg import String
 
-def process_goal_callback(goal):
+wheel_diameter = 39
+circumference =	122.5221135
+pulses_rotation = 1800
+node_name = 'trinibot_motioncontroller'
 
-    global flag
-    rospy.loginfo(goal)
+start_reading = False
 
-    if goal.objective =="goto":
-        robot.drive_to_distance(goal.value)
-    elif goal.objective =="turn":
-        robot.turn_to_angle(goal.value)
-    elif goal.objective =="spin":
-        robot.turn_at_rate(goal.value)
-    elif goal.objective =="speed":
+def twist_callback(vel):
 
-        robot.drive_at_speed(goal.value)
-    elif goal.objective == "stop":
-        robot.stop()
-    else:
-        rospy.logerr("%s is not a valid objective", goal.value)
+    start_reading = False
+    rospy.loginfo(vel)
+    if (vel.linear.x < 0 or vel.linear.x > 0) and (vel.angular.z < 0 or vel.angular.z > 0):
+        rospy.logerr("%s cannot execute linear and angular velocities simultaneously")
         return
 
-    #while goal is being executed on motion controller read its feedback\\
-    flag = True
-    while(flag and not goal.objective == 'stop' ):
-        rospy.loginfo(robot.get_feedback())
-        motion_feedback = robot.get_feedback()
-        if(len(motion_feedback) == 4):
-            clientFeedback = move_trinibotFeedback()
-            clientFeedback.xspeed = int(motion_feedback[0])
-            clientFeedback.yspeed = int(motion_feedback[1])
-            clientFeedback.xerror = int(motion_feedback[2])
-            clientFeedback.yerror = int(motion_feedback[3])
-            server.publish_feedback(clientFeedback)
-        if server.is_preempt_requested():
-            result = move_trinibotResult()
-            result.success = False
-            server.set_aborted(result, "Goal preempted")
-            flag = False
-            return
+    if vel.linear.x < 0 or vel.linear.x > 0:
+        robot.drive_at_speed(vel.linear.x)
+        start_reading = True
+    elif vel.angular.z < 0 or vel.angular.z > 0:
+        robot.turn_at_rate(vel.angular.z)
+        start_reading = True
 
-    #TODO we need to find way to fedback periodic distance and speed updates to the client
-    result = move_trinibotResult()
-    result.success = True
-    server.set_succeeded(result, "Goal success")
-
-def motor_controller_feedback(feedback):
-    rospy.loginfo(feedback)
+def stop_callback(cb):
+    if cb.data == "STOP":
+        robot.stop()
+        start_reading = False
 
 def listener():
-    global robot, server
-    robot = TrackedTrinibot(motor_controller_feedback, sys.argv[1])
+    global robot, start_reading
+    rospy.init_node(node_name, anonymous=True)
+    rospy.Subscriber('trinibot/Twist', Twist , twist_callback)
+    rospy.Subscriber('trinibot/String', String, stop_callback)
+
+    xy = 0
+    robot = TrackedTrinibot(xy, sys.argv[1])
     #Set gains to 10, 1, 1
     robot.setgains(10, 1, 1)
-    rospy.init_node('tbmotioncontroller', anonymous=True)
-    server = actionlib.SimpleActionServer('tbmotioncontroller', move_trinibotAction, process_goal_callback , False)
-    server.start()
-    rospy.spin()
+    while not rospy.is_shutdown():
+        if(robot.is_running()):
+            res = robot.get_feedback();
+            rospy.loginfo("feedback %s", res)
+            time.sleep(0.01)
+        # get the gyro values
 
 if __name__ == '__main__':
 

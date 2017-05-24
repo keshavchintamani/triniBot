@@ -26,6 +26,7 @@ class tBSerialReader():
         print("Trying to open Serial arduino: %s ", self.devid)
         try:
             self.Serial = serial.Serial(self.devid, 115200)
+            print("Success: %s ", self.Serial)
             time.sleep(1)
             pass
         except (IOError, ValueError):
@@ -33,12 +34,13 @@ class tBSerialReader():
             raise IOError
     
     def readserial(self):
-
         line = self.Serial.readline()
         res = re.findall("[-+]?\d+[\.]?\d*", line)
         try:
             if len(res) > 1:
                 return (res)
+            else:
+                return (-1,-1,-1,-1,-1)
 
         except ValueError:
             logger.error("Value error exception parsing serial data")
@@ -77,29 +79,37 @@ class TrackedTrinibot():
         self.logger.addHandler(sh)
         self.callback = feedback
         self.timerFlag = True
+        self.stopped = False
 
     def addnewline(self, str):
         return (str+"\n")
 
+    def set_running(self, val):
+        self.stopped = val
+
     def drive_at_speed(self, target_speed=100.0):
+       self.set_running(True)
        command = "speed_"+ self.addnewline(str(target_speed))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True) 
 
     def turn_at_rate(self, target_rate=50.0):
+       self.set_running(True)
        command = "spin_" + self.addnewline(str(target_rate))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True) 
 
     def drive_to_distance(self, target_distance=188.49):
+       self.set_running(True)
        command = "goto_" + self.addnewline(str(target_distance))
        self.logger.info(command);
        self.serial.writeserial(command)
        return(True)
 
     def turn_to_angle(self, target_angle=45):
+       self.set_running(True)
        command = "turn_" + self.addnewline(str(target_angle))
        self.logger.info(command);
        self.serial.writeserial(command)
@@ -107,7 +117,9 @@ class TrackedTrinibot():
 
     def stop(self):
        command = self.addnewline("stop_")
+       self.logger.info("stop called");
        self.serial.writeserial(command)
+       self.set_running(False)
        return(True)
 
     def setgains(self, kp, ki, kd):
@@ -116,6 +128,9 @@ class TrackedTrinibot():
 
     def get_feedback(self):
         return(self.serial.readserial())
+
+    def is_running(self):
+        return(self.stopped)
 
     def exit(self):
         self.stop()
