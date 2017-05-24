@@ -11,5 +11,7 @@ catkin_python_setup()
 generate_messages(DEPENDENCIES std_msgs actionlib_msgs)
 catkin_package(	CATKIN_DEPENDS std_msgs message_runtime tf actionlib_msgs	)
 
-
+install(DIRECTORY launch
+	    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+	    )
 
