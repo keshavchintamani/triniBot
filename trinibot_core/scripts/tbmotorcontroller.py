@@ -25,7 +25,7 @@ class tBSerialReader():
 
         print("Trying to open Serial arduino: %s ", self.devid)
         try:
-            self.Serial = serial.Serial(self.devid, 115200)
+            self.Serial = serial.Serial(self.devid, 57600, timeout=1)
             print("Success: %s ", self.Serial)
             time.sleep(1)
             pass
@@ -34,17 +34,30 @@ class tBSerialReader():
             raise IOError
     
     def readserial(self):
-        line = self.Serial.readline()
-        res = re.findall("[-+]?\d+[\.]?\d*", line)
+        #line = self.Serial.readline()
+
+        #res = re.findall("[-+]?\d+[\.]?\d*", line)
         try:
-            if len(res) > 1:
-                return (res)
-            else:
-                return (-1,-1,-1,-1,-1)
+            line = self._readline()
+            return(line)
 
         except ValueError:
             logger.error("Value error exception parsing serial data")
             pass
+
+    def _readline(self):
+        eol = b'\r'
+        leneol = len(eol)
+        line = bytearray()
+        while True:
+            c = self.Serial.read(1)
+            if c:
+                line += c
+                if line[-leneol:] == eol:
+                    break
+            else:
+                break
+        return bytes(line)
 
     def writeserial(self, message):
         try:
@@ -127,10 +140,16 @@ class TrackedTrinibot():
        self.serial.writeserial(command)
 
     def get_feedback(self):
-        return(self.serial.readserial())
+        return(self.serial._readline())
 
     def is_running(self):
         return(self.stopped)
+
+    def reset_odo(self):
+        command = self.addnewline("odoreset_")
+        self.serial.writeserial(command)
+        self.set_running(False)
+        self.logger.info("odo reset called");
 
     def exit(self):
         self.stop()

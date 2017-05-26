@@ -2,16 +2,31 @@
 
 import rospy
 import tf
-import tf.transformations as transforms
+import tf2_ros
+import geometry_msgs.msg
+import nav_msgs.msg
 
-from geometry_msgs.msg import Vector3Stamped, QuaternionStamped
+#Republishes trinibot odometry in the trinibot odom frame
+
+def handle_trinibot_pose(odo):
+    
+    br = tf2_ros.TransformBroadcaster()
+    po = geometry_msgs.msg.TransformStamped()
+    po.header.stamp = rospy.Time.now()
+    po.header.frame_id = "world"
+    po.child_frame_id = "odom"
+
+    po.transform.translation = odo.pose.pose.position
+    po.transform.rotation = odo.pose.pose.orientation
+    rospy.loginfo("broadcasting tranform %s", po)
+    br.sendTransform(po)
+
 if __name__ == '__main__':
-    rospy.init_node('tbplatformtransform', anonymous=True)
+    rospy.init_node('trinibot_tf_publisher', anonymous=True)
     rate = rospy.Rate(100)
-    broadcaster = tf.TransformBroadcaster()
+    rospy.Subscriber('/trinibot/odometry',
+                     nav_msgs.msg.Odometry,
+                     handle_trinibot_pose)
+    rospy.spin()
 
-    while not rospy.is_shutdown():
-        broadcaster.sendTransform((47, 0, 0), transforms.quaternion_from_euler(0, 0, 0), rospy.Time.now(), "base_camera", "base_link")
-        rate.sleep()
-
-
+   

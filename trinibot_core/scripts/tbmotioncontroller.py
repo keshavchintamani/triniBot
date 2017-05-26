@@ -6,11 +6,12 @@ import rospy
 import roslib
 roslib.load_manifest('trinibot_core')
 import sys
-import tf_conversions
+import tf.transformations as transforms
 import time
 
 from tbmotorcontroller import TrackedTrinibot
 from geometry_msgs.msg import Twist, Pose
+from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 
 wheel_diameter = 39
@@ -23,7 +24,6 @@ start_reading = False
 def twist_callback(vel):
 
     start_reading = False
-    rospy.loginfo(vel)
     if (vel.linear.x < 0 or vel.linear.x > 0) and (vel.angular.z < 0 or vel.angular.z > 0):
         rospy.logerr("%s cannot execute linear and angular velocities simultaneously")
         return
@@ -39,22 +39,47 @@ def stop_callback(cb):
     if cb.data == "STOP":
         robot.stop()
         start_reading = False
+    elif cb.data =="ODORESET":
+        robot.reset_odo()
+    else:
+        rospy.logwarn("%s: Invalid string", node_name)
 
 def listener():
     global robot, start_reading
     rospy.init_node(node_name, anonymous=True)
-    rospy.Subscriber('trinibot/Twist', Twist , twist_callback)
-    rospy.Subscriber('trinibot/String', String, stop_callback)
-
+    rospy.Subscriber('trinibot/gui/velocity_cmd', Twist , twist_callback)
+    rospy.Subscriber('trinibot/gui/string_cmd', String, stop_callback)
+    pub = rospy.Publisher('/trinibot/odometry', Odometry, queue_size= 10)
     xy = 0
     robot = TrackedTrinibot(xy, sys.argv[1])
     #Set gains to 10, 1, 1
     robot.setgains(10, 1, 1)
+    r = rospy.Rate(60)
     while not rospy.is_shutdown():
         if(robot.is_running()):
-            res = robot.get_feedback();
-            rospy.loginfo("feedback %s", res)
-            time.sleep(0.01)
+            res = robot.get_feedback()
+            try:
+                arr = [float(s) for s in res.split()]
+                rospy.loginfo(arr)
+                if len(arr) < 6:
+                    continue
+                odom = Odometry()
+                odom.pose.pose.position.x = arr[0]
+                odom.pose.pose.position.y = arr[1]
+                q = transforms.quaternion_from_euler(0, 0, arr[2])
+                odom.pose.pose.orientation.x = q[0]
+                odom.pose.pose.orientation.y = q[1]
+                odom.pose.pose.orientation.z = q[2]
+                odom.pose.pose.orientation.w = q[3]
+                odom.twist.twist.linear.x = arr[3]
+                odom.twist.twist.linear.y = arr[4]
+                odom.twist.twist.angular.z = arr[5]
+                pub.publish(odom)
+            except ValueError, e:
+                print "error", e, "on value", s
+                pass
+
+        r.sleep()
         # get the gyro values
 
 if __name__ == '__main__':

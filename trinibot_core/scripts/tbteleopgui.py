@@ -36,7 +36,7 @@ class robotGUI_tk(Tkinter.Tk):
         labelAngle = Tkinter.Label(self, text = u"Angular", anchor="w", fg="white", bg ="blue")
         labelAngle.grid(column=0, row=1, sticky='EW')
 
-        self.distanceEntryVar = Tkinter.StringVar(value="0.1")
+        self.distanceEntryVar = Tkinter.StringVar(value="0.01")
 
         labelSpeed = Tkinter.Label(self, text = u"Linear", anchor="w", fg="white", bg ="blue")
         labelSpeed.grid(column=0, row=2, sticky='EW')
@@ -49,10 +49,13 @@ class robotGUI_tk(Tkinter.Tk):
         angleentry.grid(column=1, row = 1, sticky='EW')
         angleentry.bind("<Return>", self.OnAnglePressEnter)
 
+
         self.speedmodeVar = Tkinter.IntVar()
 
         checkButton = Tkinter.Checkbutton(self, text=u"Rate control", variable=self.speedmodeVar, command = self.modecallback)
         checkButton.grid(column=1, row=3)
+        checkButton.select()
+        self.modecallback()
 
         self.grid()
 
@@ -70,6 +73,10 @@ class robotGUI_tk(Tkinter.Tk):
 
         bbutton = Tkinter.Button(self, text=u"back", command = self.OnBackButtonClick)
         bbutton.grid(column=3, row = 3)
+
+        odobutton = Tkinter.Button(self, text=u"Odometer Reset", command=self.OdoResetButtonClick)
+        odobutton.grid(column=0, row=5)
+
 
     def modecallback(self):
         self.speedmodeVar = not self.speedmodeVar
@@ -95,6 +102,11 @@ class robotGUI_tk(Tkinter.Tk):
         rospy.loginfo("Received result: %s", result1)
         rospy.loginfo("Received result: %s", result2)
 
+    def OdoResetButtonClick(self):
+        rospy.loginfo("odo reset pressed")
+        reset_odo = String()
+        reset_odo.data = "ODORESET"
+        stop_pub.publish(reset_odo)
 
     def OnForwardButtonClick(self):
         if self.speedmodeVar == 1:
@@ -138,7 +150,7 @@ class robotGUI_tk(Tkinter.Tk):
 
     def OnStopButtonClick(self):
         stop = String()
-        stop = "STOP"
+        stop.data = "STOP"
         stop_pub.publish(stop)
 
 
@@ -147,9 +159,9 @@ if __name__ == '__main__':
         rospy.init_node('teleop_gui', anonymous=True)
         app = robotGUI_tk(None)
         app.title('triniBot Teleoperation Controls')
-        pose_pub = rospy.Publisher("trinibot/Pose", Pose, queue_size=1)
-        vel_pub = rospy.Publisher("trinibot/Twist", Twist, queue_size=1)
-        stop_pub = rospy.Publisher("trinibot/String", String, queue_size=1)
+        pose_pub = rospy.Publisher("trinibot/gui/position_cmd", Pose, queue_size=1)
+        vel_pub = rospy.Publisher("trinibot/gui/velocity_cmd", Twist, queue_size=1)
+        stop_pub = rospy.Publisher("trinibot/gui/string_cmd", String, queue_size=1)
         app.mainloop()
 
     except rospy.ROSInterruptException:

@@ -29,7 +29,7 @@
 #define POSITION 0
 #define VELOCITY 1
 #define TURNRATE 1
-#define dT 50 //Interrupt timer in microseconds
+#define dT 20 //Interrupt timer in microseconds
 #define ZOOM 1
 #define PULSE_DEG 5 //Number of encoder pulses per degree
 #define PULSE_DEG_BASE 12.38 //Round off - should be 12.38 insted
@@ -52,12 +52,12 @@ const int encoders_baserotation = 4459; //pulses
 
 #define D2R 0.0174533
 #define R2D 57.295
-//Constants used to convert speed and spin targets into pulses@velocity sampling rate
+//Constants used to convert speed and spin targets into pulses/sec @ specified velocity sampling rate period
 
-//Converts speed in m/s to pulse@velocity sampling rate
+//Converts speed in m/s into pulses/sec @ specified velocity sampling rate period
 const float speed_constant = (float) PULSE_DEG*(R2D/(radius*pow(10,-3)))/VELOCITY_SAMPLING_RATE;
 
-//Converts speed in deg/s to pulse@velocity sampling rate
+//Converts speed in deg/s into pulses/sec @ specified velocity sampling rate period
 const float spin_constant = (float) (radius/base_radius)*PULSE_DEG_BASE/VELOCITY_SAMPLING_RATE;
 
 // this is the decode table for the optical encoder
@@ -70,7 +70,7 @@ IntervalTimer encoder;
 char* type;
 String serialcommand, header, values;
 String inputString = ""; 
-char msg[32];
+char msg[48];
 
 boolean stringComplete = false;
 
@@ -80,7 +80,7 @@ signed int xoutMax = 0;
 signed int youtMin = 0;
 signed int youtMax = 0;
 volatile unsigned int mode = VELOCITY; // by default set it to velocity tracking
-volatile bool modeAngular = false;
+volatile int modeAngular = 0;
 unsigned int actuationTimePeriod=0;
 volatile unsigned long encoderState = 0; // use volatile for shared variables
 volatile float error = 0;
@@ -116,12 +116,12 @@ volatile float pwm_output=0; // for PID loops
 int time_last = millis(); 
 int time_now = millis();
 int dt =0;
-float w_now=0, w_last=0;
-float vx_now=0, vx_last=0;
-float vy_now=0, vy_last=0;
+float vx_now=0;
+float vy_now=0;
+float w_now=0;
 float x=0,y=0, th=0;
-
-
+float v_now = 0;
+long increment_counter =0;
 boolean fbswitch = false;
 //All things MotorHat Related
 // Create the motor shield object with the default I2C address
@@ -136,7 +136,7 @@ void motorsStop(){
 void setup() {
 
   feedbackSwitch(false);
-  Serial.begin(115200);  
+  Serial.begin(57600);  
   serialcommand.reserve(200);
   AFMS.begin();  // create with the default frequency 1.6KHz
   pinMode(xQ1Pin, INPUT);  
@@ -164,6 +164,9 @@ void setup() {
   rightMotor->setSpeed(0);    
   leftMotor->run(RELEASE);
   rightMotor->run(RELEASE);
+  
+  //Figure out the frequency to read the error 
+  setactuationTimePeriod(mode);
 }
 
 void loop() {
@@ -171,46 +174,32 @@ void loop() {
     float value = 0; 
     cli(); // disable interrupt
       float copy_xSpeed = xSpeed;
-      float copy_ySpeed = ySpeed; 
-      long copy_xEncoder = xEncoder;
-      long copy_yEncoder = yEncoder; 
-      float copy_error = error; 
     sei(); // reenable the interrupt 
     
     if(fbswitch){
 
-        //Calculate the elapsed time
-        time_now = millis();
-        int dt  = time_now - time_last; 
-      
-       /* if (mode == POSITION){
-           copy_error = copy_error/xSetPoint;
-           if(copy_error < 0.03 || copy_error > -0.03)
-              done_flag = 1;
-           else done_flag = 0;
-        }*/
-        if(modeAngular){         
-          //Calculate the difference in angular velocity and multiply it by dt to get degrees turned 
-          w_now = D2R*copy_xSpeed/spin_constant;
-          th += (w_now-w_last)*dt*pow(10,-6);
-          w_last = w_now;
-                  
-        }else{
-          vx_now = copy_xSpeed/speed_constant;
-          x = x + (vx_now-vx_last)*dt*pow(10,-6);
-          vx_last = vx_now;
-
-          vy_now = copy_xSpeed/speed_constant;
-          y = y + (vy_now-vy_last)*dt*pow(10,-6);
-          vy_last = vy_now;          
-        }               
+       //Calculate the elapsed time
+       time_now = millis();
+       dt  = time_now - time_last; 
+       //Grab the current speed:
+       v_now = copy_xSpeed/speed_constant;
+       if(modeAngular == 1){         
+          //Calculate the change in angle since last reading
+          w_now = -1*v_now/(base_radius*pow(10,-3));
+          th += w_now*dt*pow(10,-3);                
+       }else if (modeAngular == 0){
+          vx_now = cos(th)*v_now;
+          vy_now = sin(th)*v_now;
+          x += (vx_now)*dt*pow(10,-3);
+          y += (vy_now)*dt*pow(10,-3);
+        }     
        
-        sprintf(msg,"%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\n", x, y, th, vx_now, vy_now, w_now);    
+        sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f\r", x, y, th, vx_now, vy_now, w_now);    
         Serial.println(msg);
-        time_last = time_now;         
+        time_last = time_now;  
+        increment_counter++;       
     }
-    delay(10); 
-    
+       
     if (stringComplete) {
         header = serialcommand.substring(0, serialcommand.indexOf("_"));
         values = serialcommand.substring(serialcommand.indexOf("_")+1 , serialcommand.length());
@@ -219,37 +208,42 @@ void loop() {
        
         if (header == "stop" ){
           encoder.end();
-          motorsStop();     
-          feedbackSwitch(false); 
+          motorsStop();       
+          feedbackSwitch(false);  
+          modeAngular = -1; //After a reset or stop, go into an unknown state     
+          increment_counter=0;        
         }
         else if (header == "goto"){
           //in meters       
-          setPoint(POSITION, false, (value*pow(10,3)/circumference)*encoders_wheelrotation, -(value*pow(10,3)/circumference)  * encoders_wheelrotation);
+          setPoint(POSITION, 0, (value*pow(10,3)/circumference)*encoders_wheelrotation, -(value*pow(10,3)/circumference)  * encoders_wheelrotation);
           encoder.end();    
           setDirection();
           encoder.begin(encoderUpdate, dT);   
           feedbackSwitch(true);
         }
         else if (header == "turn"){
-          setPoint(POSITION, false, -(value/360)  * encoders_baserotation, -(value/360)  * encoders_baserotation);
+          setPoint(POSITION, 0, -(value/360)  * encoders_baserotation, -(value/360)  * encoders_baserotation);
           encoder.end();    
           setDirection();
           encoder.begin(encoderUpdate, dT);   
           feedbackSwitch(true);
         }
         else if (header == "speed"){
+          feedbackSwitch(false);
           //Divide the value from m/s to the setpoint in degree/sec     
           float setpoint = value*speed_constant;
-          setPoint(VELOCITY, false,  setpoint, -setpoint);   
+          setPoint(VELOCITY, 0,  setpoint, -setpoint);   
           encoder.end();
           setDirection(); 
           encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz*/
           feedbackSwitch(true);
         } 
         else if (header == "spin"){
-          //Divide the value from deg/s to the sampling rate
-          value = spin_constant*value; 
-          setPoint(VELOCITY, true, -value, -value);  
+          feedbackSwitch(false);
+          //Assume incoming request is in degrees/sec so convert into rad/s  
+          float setpoint = D2R*value*speed_constant*base_radius*pow(10,-3);
+          // 
+          setPoint(VELOCITY, 1, -setpoint, -setpoint);  
           encoder.end();
           setDirection();        
           encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz    
@@ -263,12 +257,17 @@ void loop() {
           Serial.println(logg);
           setGains(kpi,kii, kdi);
         }
+        else if(header == "odoreset"){
+          feedbackSwitch(false);    
+          x = y = th = vx_now = vy_now = w_now = 0;
+          feedbackSwitch(true);       
+        }
         // clear all strings
         serialcommand = "";
         stringComplete = false;
         header ="";
     }  
-     
+    delay(10);
 }
 
 void feedbackSwitch(boolean state){
@@ -344,8 +343,8 @@ void encoderUpdate(void) {
                     }
               break;
               
-              // y channel
-              case 1:
+           
+             case 1: // y channel
               
                     switch(mode){
                       case POSITION:
@@ -376,7 +375,7 @@ void encoderUpdate(void) {
                         yLastInput = ySpeed;
                       break;
                     }
-              break;    
+              break;  
       }
   }
  
@@ -394,10 +393,9 @@ void setGains(signed long kp, signed long ki,signed long kd){
      xkd = ykd = kd;
    sei();
 }
-void setPoint(int mode_in, bool angular_mode, float value_left, float value_right){
+void setPoint(int mode_in, int angular_mode, float value_left, float value_right){
    cli();
       mode = mode_in;
-      setactuationTimePeriod(mode);
       modeAngular = angular_mode;
       //xEncoder = 0 ;
       //yEncoder = 0 ;  
