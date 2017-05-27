@@ -29,21 +29,20 @@
     <!--<node pkg="image_proc" type="image_proc" name="image_rectifier" ns="trinibot_framesync" machine ="$(machine_c2i_user)" respawn="false" output="screen">
     </node> -->
 
-    <!-- Motion control -->
+    <!-- Motion control
 
     <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen" />
     <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />
 
-    <!-- Sensors -->
+    -->
 
 <!--    <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(machine_bot)" respawn="false" /> -->
 
-    <!-- Augmented Reality -->
     <arg name="markerId"        default="582"/>
-    <arg name="markerSize"      default="0.05"/>    <!-- in m -->
+    <arg name="markerSize"      default="0.05"/>
     <arg name="marker_frame"    default="aruco_marker_frame"/>
-    <arg name="ref_frame"       default=""/>  <!-- leave empty and the pose will be published wrt param parent_name -->
-    <arg name="corner_refinement" default="LINES" /> <!-- NONE, HARRIS, LINES, SUBPIX -->
+    <arg name="ref_frame"       default=""/>
+    <arg name="corner_refinement" default="LINES" />
 
     <node pkg="aruco_ros" machine="$(arg machine_c2i)" type="single" name="aruco_single">
         <remap from="/image" to="/trinibot_camera/image_flipped/image_raw" />
@@ -51,28 +50,13 @@
         <param name="image_is_rectified" value="False"/>
         <param name="marker_size"        value="$(arg markerSize)"/>
         <param name="marker_id"          value="$(arg markerId)"/>
-        <param name="reference_frame"    value="$(arg ref_frame)"/>   <!-- frame in which the marker pose will be refered -->
+        <param name="reference_frame"    value="$(arg ref_frame)"/>
         <param name="camera_frame"       value="abcd"/>
         <param name="marker_frame"       value="$(arg marker_frame)" />
         <param name="corner_refinement"  value="$(arg corner_refinement)" />
     </node>
 
     <!--<node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/aruco_single/result" machine ="$(machine_c2i_user)" respawn="false" output="screen" />-->
-    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/trinibot_camera/image_raw" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
-
+    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/aruco_single/result _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
 
 </launch>
-
-<!-- args="image:=/trinibot_camera/image_raw _image_transport:=&quot;compressed&quot;"-->
- <!--  <node pkg="raspicam" type="raspicam_node" name="trinibot_camera" args="_width:=320 _height:=240 _framerate:=15 _quality:=100" machine ="$(machine_bot)" respawn="false" output="screen">
-        <remap from="/camera/image/compressed" to="/trinibot/image" />
-    </node>
-
-   <!-
-    <node pkg="image_rotate" type="image_rotate" name="trinibot_image_rotate" args="image:=/trinibot_camera/image_raw" machine ="$(machine_bot)" respawn="false" output="screen">
-        <remap from="/usb_cam/image_raw" to="/trinibot/image" />
-    </node>
-
-#Use this - calls a bash script on the RPi to invoke a rosservice call (to start the raspicam node)
-    <node pkg="trinibot_core" type="raspicam_startcamera.bash" name="startcamera" machine="$(machine_bot)" respawn="false" output="screen" />
--->

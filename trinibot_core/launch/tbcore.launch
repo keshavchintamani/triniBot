@@ -62,8 +62,7 @@
     </node>
 
     <!--<node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/aruco_single/result" machine ="$(machine_c2i_user)" respawn="false" output="screen" />-->
-    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/trinibot_camera/image_raw" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
-
+    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/aruco_single/result _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
 
 </launch>
 

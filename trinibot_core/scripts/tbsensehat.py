@@ -13,7 +13,7 @@ def Start():
     #Setup the publishers
     temp_pub = rospy.Publisher("/trinibot_sensors/temperature", Temperature, queue_size= 10)
     humidity_pub = rospy.Publisher("/trinibot_sensors/humidity", RelativeHumidity, queue_size= 10)
-    pose_pub = rospy.Publisher("/trinibot_sensors/pose", Imu, queue_size= 10)
+    pose_pub = rospy.Publisher("/trinibot_sensors/imu", Imu, queue_size= 10)
     compass_pub = rospy.Publisher("/trinibot_sensors/compass", MagneticField, queue_size=10)
     
     r = rospy.Rate(10) # 10hz
