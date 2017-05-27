@@ -6,9 +6,8 @@ import random
 import time as Time
 import Tkinter
 import atexit
-import tf_conversions as conversions
-import actionlib
-from trinibot_core.msg import  move_trinibotAction, move_trinibotGoal
+import tf.transformations as tftransforms
+
 
 roslib.load_manifest('trinibot_core')
 
@@ -23,6 +22,8 @@ class robotGUI_tk(Tkinter.Tk):
         Tkinter.Tk.__init__(self, parent)
         self.parent = parent
         self.initialize()
+        self.pose_pub = rospy.Publisher('cmd_pos', Pose, queue_size=1)
+        self.twist_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
     def initialize(self):
 
@@ -129,6 +130,12 @@ class robotGUI_tk(Tkinter.Tk):
             pose_pub.publish(p)
 
     def OnRightButtonClick(self):
+        self.angularPlatform(-1)
+
+    def OnStopButtonClick(self):
+        self.linearPlatform(0)
+
+    def linearPlatform(self, direction):
         if self.speedmodeVar == 1:
             t = Twist()
             t.angular.z = -1*float(self.angleEntryVar.get())
@@ -138,7 +145,7 @@ class robotGUI_tk(Tkinter.Tk):
             p.orientation = tf_T.quaternion_from_euler(0,0,-1*float(self.angleEntryVar.get()),axes='sxyz')
             pose_pub.publish(p)
 
-    def OnBackButtonClick(self):
+    def angularPlatform(self, direction):
         if self.speedmodeVar == 1:
             t = Twist()
             t.linear.x = -1*float(self.distanceEntryVar.get())
@@ -153,6 +160,9 @@ class robotGUI_tk(Tkinter.Tk):
         stop.data = "STOP"
         stop_pub.publish(stop)
 
+    def publishTwist(self, twist):
+        self.twist_pub.publish(twist)
+        rospy.loginfo(twist)
 
 if __name__ == '__main__':
     try:
