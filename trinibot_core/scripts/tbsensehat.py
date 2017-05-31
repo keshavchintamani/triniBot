@@ -32,20 +32,28 @@ def Start():
         gyro.angular_velocity.z = sense.get_gyroscope()['yaw']*D2R
 
         #convert euler into quaternion
-        gyro.orientation = tf.transformations.quaternion_from_euler(sense.get_orientation_degrees()['pitch']*D2R, \
+        quat = tf.transformations.quaternion_from_euler(sense.get_orientation_degrees()['pitch']*D2R, \
                                                 sense.get_orientation_degrees()['roll'] * D2R, \
                                                 sense.get_orientation_degrees()['yaw'] * D2R)
 
+        gyro.orientation.x = quat[0]
+        gyro.orientation.y = quat[1]
+        gyro.orientation.z = quat[2]
+        gyro.orientation.w = quat[3]
         gyro.linear_acceleration.x = sense.get_accelerometer_raw()['x']
         gyro.linear_acceleration.y = sense.get_accelerometer_raw()['y']
         gyro.linear_acceleration.z = sense.get_accelerometer_raw()['z']
-        
         #get temperature
+        temp.header.stamp = rospy.Time.now()
         temp.temperature = sense.get_temperature()
         #get humidity
+        humid.header.stamp = rospy.Time.now()
         humid.relative_humidity = sense.get_humidity()
         #get compass
-        compass.magnetic_field = sense.get_compass_raw()
+        compass.header.stamp = rospy.Time.now()
+        compass.magnetic_field.x = sense.get_compass_raw()['x']
+        compass.magnetic_field.y = sense.get_compass_raw()['y']
+        compass.magnetic_field.z = sense.get_compass_raw()['z']
 
         temp_pub.publish(temp)
         humidity_pub.publish(humid)
