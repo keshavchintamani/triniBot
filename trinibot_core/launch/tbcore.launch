@@ -54,21 +54,13 @@
     <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(arg machine_bot)" respawn="false" />
 
     <!--GUIs-->
-    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/aruco_single/result _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
+    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/trinibot_camera/image_flipped _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
     <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />
 
 
 </launch>
 
-<!-- args="image:=/trinibot_camera/image_raw _image_transport:=&quot;compressed&quot;"-->
- <!--  <node pkg="raspicam" type="raspicam_node" name="trinibot_camera" args="_width:=320 _height:=240 _framerate:=15 _quality:=100" machine ="$(machine_bot)" respawn="false" output="screen">
-        <remap from="/camera/image/compressed" to="/trinibot/image" />
-    </node>
-
-   <!-
-    <node pkg="image_rotate" type="image_rotate" name="trinibot_image_rotate" args="image:=/trinibot_camera/image_raw" machine ="$(machine_bot)" respawn="false" output="screen">
-        <remap from="/usb_cam/image_raw" to="/trinibot/image" />
-    </node>
+<!--
 
 #Use this - calls a bash script on the RPi to invoke a rosservice call (to start the raspicam node)
     <node pkg="trinibot_core" type="raspicam_startcamera.bash" name="startcamera" machine="$(machine_bot)" respawn="false" output="screen" />

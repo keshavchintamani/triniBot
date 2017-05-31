@@ -174,7 +174,7 @@ if __name__ == '__main__':
         app.title('triniBot Teleoperation Controls')
         pose_pub = rospy.Publisher("trinibot_gui/position_cmd", Pose, queue_size=1)
         vel_pub = rospy.Publisher("trinibot_gui/velocity_cmd", Twist, queue_size=1)
-        stop_pub = rospy.Publisher("trinibot/gui/string_cmd", String, queue_size=1)
+        stop_pub = rospy.Publisher("trinibot_gui/string_cmd", String, queue_size=1)
         app.mainloop()
 
     except rospy.ROSInterruptException:
