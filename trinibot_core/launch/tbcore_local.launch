@@ -18,10 +18,15 @@
     <node pkg="usb_cam" type="usb_cam_node" name="trinibot_camera" args="_autofocus=1 _image_width:=320 _image_height:=240 _pixel_format:=&quot;yuyv&quot;" machine ="$(arg machine_c2i)" respawn="false" output="screen">
     </node>
 
-       <node pkg="trinibot_core" type="tbimageflip.py" name="imageflip" machine ="$(arg machine_c2i)" respawn="false" output="screen" >
-        <remap from="/image_raw" to="/trinibot_camera/image_raw"  />
+    <node pkg="trinibot_core" type="tbimageflip.py" name="imageflip" machine ="$(arg machine_c2i)" respawn="false" output="screen" >
+        <remap from="/image" to="/trinibot_camera/image_raw/compressed"  />
         <remap from="/camera_info" to= "/trinibot_camera/camera_info"  />
     </node>
+
+   <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/trinibot_camera/image_flipped _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
+
+     <!--<node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />-->
+
 
    <!-- <node pkg="trinibot_core" type="tbtimesynchronizer.py" name="time_synchronizer" args="image:=/trinibot_camera/image_raw camera_info:=/trinibot_camera/camera_info" machine="$(machine_c2i_user)" respawn="false" output="screen">
     </node>-->
@@ -29,12 +34,11 @@
     <!--<node pkg="image_proc" type="image_proc" name="image_rectifier" ns="trinibot_framesync" machine ="$(machine_c2i_user)" respawn="false" output="screen">
     </node> -->
 
-    <!-- Motion control
+    <!-- Motion control -->
 
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen" />
-    <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />
+    <!--<node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen" />-->
 
-    -->
+
 
 <!--    <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(machine_bot)" respawn="false" /> -->
 
@@ -57,6 +61,5 @@
     </node>
 
     <!--<node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/aruco_single/result" machine ="$(machine_c2i_user)" respawn="false" output="screen" />-->
-    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/aruco_single/result _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
 
 </launch>

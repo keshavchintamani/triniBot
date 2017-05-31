@@ -3,8 +3,11 @@
 from sense_hat import SenseHat
 import time as Time
 import rospy
+import tf.transformations
 
 from sensor_msgs.msg import Imu, RelativeHumidity, Temperature, MagneticField
+
+D2R = 0.0174533
 
 def Start():
     sense=SenseHat()
@@ -16,20 +19,23 @@ def Start():
     pose_pub = rospy.Publisher("/trinibot_sensors/imu", Imu, queue_size= 10)
     compass_pub = rospy.Publisher("/trinibot_sensors/compass", MagneticField, queue_size=10)
     
-    r = rospy.Rate(10) # 10hz
+    r = rospy.Rate(50) # 10hz
     gyro = Imu()
     temp = Temperature()
     humid = RelativeHumidity()
     compass = MagneticField()
     while not rospy.is_shutdown():
         #get the gyro values
+        gyro.header.stamp = rospy.Time.now()
+        gyro.angular_velocity.x = sense.get_gyroscope()['pitch']*D2R
+        gyro.angular_velocity.y = sense.get_gyroscope()['roll']*D2R
+        gyro.angular_velocity.z = sense.get_gyroscope()['yaw']*D2R
 
-        gyro.angular_velocity.x = sense.get_gyroscope()['pitch']
-        gyro.angular_velocity.y = sense.get_gyroscope()['roll']
-        gyro.angular_velocity.z = sense.get_gyroscope()['yaw']
-        gyro.orientation.x = sense.get_orientation_degrees()['pitch']
-        gyro.orientation.y = sense.get_orientation_degrees()['roll']
-        gyro.orientation.z = sense.get_orientation_degrees()['yaw']
+        #convert euler into quaternion
+        gyro.orientation = tf.transformations.quaternion_from_euler(sense.get_orientation_degrees()['pitch']*D2R, \
+                                                sense.get_orientation_degrees()['roll'] * D2R, \
+                                                sense.get_orientation_degrees()['yaw'] * D2R)
+
         gyro.linear_acceleration.x = sense.get_accelerometer_raw()['x']
         gyro.linear_acceleration.y = sense.get_accelerometer_raw()['y']
         gyro.linear_acceleration.z = sense.get_accelerometer_raw()['z']

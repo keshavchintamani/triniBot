@@ -47,23 +47,25 @@ def stop_callback(cb):
 def listener():
     global robot, start_reading
     rospy.init_node(node_name, anonymous=True)
-    rospy.Subscriber('trinibot/gui/velocity_cmd', Twist , twist_callback)
-    rospy.Subscriber('trinibot/gui/string_cmd', String, stop_callback)
+    rospy.Subscriber('/velocity_cmd', Twist , twist_callback)
+    rospy.Subscriber('/string_cmd', String, stop_callback)
     pub = rospy.Publisher('/trinibot/odometry', Odometry, queue_size= 10)
     xy = 0
     robot = TrackedTrinibot(xy, sys.argv[1])
     #Set gains to 10, 1, 1
     robot.setgains(10, 1, 1)
     r = rospy.Rate(60)
+    odom_old = Odometry()
+    odom = Odometry()
+
     while not rospy.is_shutdown():
         if(robot.is_running()):
             res = robot.get_feedback()
             try:
                 arr = [float(s) for s in res.split()]
-                rospy.loginfo(arr)
                 if len(arr) < 6:
                     continue
-                odom = Odometry()
+
                 odom.pose.pose.position.x = arr[0]
                 odom.pose.pose.position.y = arr[1]
                 q = transforms.quaternion_from_euler(0, 0, arr[2])
@@ -75,9 +77,12 @@ def listener():
                 odom.twist.twist.linear.y = arr[4]
                 odom.twist.twist.angular.z = arr[5]
                 pub.publish(odom)
+                odom_old = odom
             except ValueError, e:
                 print "error", e, "on value", s
-                pass
+                continue
+        else:
+            pub.publish(odom_old)
 
         r.sleep()
         # get the gyro values

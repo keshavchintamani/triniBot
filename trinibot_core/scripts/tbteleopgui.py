@@ -22,8 +22,6 @@ class robotGUI_tk(Tkinter.Tk):
         Tkinter.Tk.__init__(self, parent)
         self.parent = parent
         self.initialize()
-        self.pose_pub = rospy.Publisher('cmd_pos', Pose, queue_size=1)
-        self.twist_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
     def initialize(self):
 
@@ -49,7 +47,6 @@ class robotGUI_tk(Tkinter.Tk):
         angleentry = Tkinter.Entry(self, textvariable = self.angleEntryVar )
         angleentry.grid(column=1, row = 1, sticky='EW')
         angleentry.bind("<Return>", self.OnAnglePressEnter)
-
 
         self.speedmodeVar = Tkinter.IntVar()
 
@@ -88,14 +85,6 @@ class robotGUI_tk(Tkinter.Tk):
     def OnAnglePressEnter(self,event):
         print "You pressed  %s" % self.angleEntryVar.get()
 
-    def pushGoal(self, objective, value):
-        #client.cancel_goal()
-        goal = move_trinibotGoal()
-        goal.objective = objective
-        goal.value = value
-        rospy.loginfo(goal)
-        client.send_goal(goal,done_cb = self.done_callback, feedback_cb=self.feeback_callback)
-
     def feeback_callback(self, feedback):
         rospy.loginfo("Received result: %s", feedback)
 
@@ -130,10 +119,24 @@ class robotGUI_tk(Tkinter.Tk):
             pose_pub.publish(p)
 
     def OnRightButtonClick(self):
-        self.angularPlatform(-1)
+        if self.speedmodeVar == 1:
+            t = Twist()
+            t.angular.z = -1*float(self.angleEntryVar.get())
+            vel_pub.publish(t)
+        else:
+            p = Pose()
+            p.orientation = tf_T.quaternion_from_euler(0, 0, -1 * float(self.angleEntryVar.get()), axes='sxyz')
+            pose_pub.publish(p)
 
-    def OnStopButtonClick(self):
-        self.linearPlatform(0)
+    def OnBackButtonClick(self):
+        if self.speedmodeVar == 1:
+            t = Twist()
+            t.linear.x = -1*float(self.distanceEntryVar.get())
+            vel_pub.publish(t)
+        else:
+            p = Pose()
+            p.position.x = -1*float(self.distanceEntryVar.get())
+            pose_pub.publish(p)
 
     def linearPlatform(self, direction):
         if self.speedmodeVar == 1:
@@ -169,8 +172,8 @@ if __name__ == '__main__':
         rospy.init_node('teleop_gui', anonymous=True)
         app = robotGUI_tk(None)
         app.title('triniBot Teleoperation Controls')
-        pose_pub = rospy.Publisher("trinibot/gui/position_cmd", Pose, queue_size=1)
-        vel_pub = rospy.Publisher("trinibot/gui/velocity_cmd", Twist, queue_size=1)
+        pose_pub = rospy.Publisher("trinibot_gui/position_cmd", Pose, queue_size=1)
+        vel_pub = rospy.Publisher("trinibot_gui/velocity_cmd", Twist, queue_size=1)
         stop_pub = rospy.Publisher("trinibot/gui/string_cmd", String, queue_size=1)
         app.mainloop()
 
