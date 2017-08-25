@@ -16,6 +16,7 @@
   This code is in the public domain.
 */
 #include <Wire.h>
+#include <string.h> 
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 
@@ -25,17 +26,16 @@
 #define CLOCK_PIN 13
 #define MOSI_PIN 12
 #define MISO_PIN 11
+#define ledPin 13
 
 #define POSITION 0
 #define VELOCITY 1
 #define TURNRATE 1
-#define dT 20 //Interrupt timer in microseconds
-#define ZOOM 1
-#define PULSE_DEG 5 //Number of encoder pulses per degree
-#define PULSE_DEG_BASE 12.38 //Round off - should be 12.38 insted
+#define dT 20 //Interrupt timer in microseconds1
+
 #define VELOCITY_SAMPLING_RATE 100 //Instantaneous velocity capture in hz
-#define max_pwm 150
-#define ledPin 13
+
+
 
 // definition of how the pins are set up
 #define xQ1Pin 15  // pin A for x axis quadrature encoder    J1 pin 4
@@ -43,22 +43,29 @@
 #define yQ1Pin 3  // pin A for y axis quadrature encoder   J2 pin 4
 #define yQ2Pin 4  // pin B for y axis quadrature encoder   J2 pin 3
 
+//For encoders
+int gear_ratio = 150;
+int ppr=12;
+int pulse_deg=5;//Number of encoder pulses per degree
+int pulse_deg_base= 12.38; //Round off - should be 12.38 insted
+int max_pwm=150;
+
 //For tracks
-const float radius = 19.5; //mm
-const float base_radius = 48.3; //mm 
-const float circumference = 122.5221135; //mm
-const int encoders_wheelrotation = 1800; //pulses
-const int encoders_baserotation = 4459; //pulses
+float radius = 19.5; //mm
+float base_radius = 48.3; //mm 
+float circumference = 122.5221135; //mm
+int encoders_wheelrotation = 1800; //pulses
+int encoders_baserotation = 4459; //pulses
 
 #define D2R 0.0174533
 #define R2D 57.295
 //Constants used to convert speed and spin targets into pulses/sec @ specified velocity sampling rate period
 
 //Converts speed in m/s into pulses/sec @ specified velocity sampling rate period
-const float speed_constant = (float) PULSE_DEG*(R2D/(radius*pow(10,-3)))/VELOCITY_SAMPLING_RATE;
+const float speed_constant = (float) pulse_deg*(R2D/(radius*pow(10,-3)))/VELOCITY_SAMPLING_RATE;
 
 //Converts speed in deg/s into pulses/sec @ specified velocity sampling rate period
-const float spin_constant = (float) (radius/base_radius)*PULSE_DEG_BASE/VELOCITY_SAMPLING_RATE;
+const float spin_constant = (float) (radius/base_radius)*pulse_deg_base/VELOCITY_SAMPLING_RATE;
 
 // this is the decode table for the optical encoder
 signed long enc_TAB[]={0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0};
@@ -74,7 +81,7 @@ char msg[48];
 
 boolean stringComplete = false;
 
-float w_w2w_ratio=0.4;
+//float w_w2w_ratio=0.4;
 signed int xoutMin = 0;
 signed int xoutMax = 0;
 signed int youtMin = 0;
@@ -128,6 +135,38 @@ boolean fbswitch = false;
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
 Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
 Adafruit_DCMotor *rightMotor = AFMS.getMotor(3);
+
+
+void set_parameters(int _gr, int _ppr, float wheel_dia, float base_dia, int max_pwm = 150 ){
+  
+  radius = wheel_dia/2;
+  base_radius = base_dia/2;
+  circumference = PI*wheel_dia;
+  encoders_wheelrotation =  _gr*_ppr;
+  encoders_baserotation  =  encoders_wheelrotation*(PI*base_dia)/circumference;
+  pulse_deg = encoders_wheelrotation/360;
+  pulse_deg_base = encoders_baserotation/360;
+  
+}
+
+void get_parameters(){
+  
+  Serial.println("Parameters:");
+  Serial.print("Wheel radius:");
+  Serial.println(radius);
+  Serial.print("Base radius:");
+  Serial.println(base_radius);
+  Serial.print("Wheel circumference:");
+  Serial.println(circumference);
+  Serial.print("Encoders/wheel:");
+  Serial.println(encoders_wheelrotation);
+  Serial.print("Encoders/base:");
+  Serial.println(encoders_baserotation);
+  Serial.print("pulse_deg:");
+  Serial.println(pulse_deg);
+  Serial.print("pulse_deg_base:");
+  Serial.println(pulse_deg_base);
+}
 
 void motorsStop(){
   leftMotor->run(RELEASE);
@@ -203,6 +242,13 @@ void loop() {
     if (stringComplete) {
         header = serialcommand.substring(0, serialcommand.indexOf("_"));
         values = serialcommand.substring(serialcommand.indexOf("_")+1 , serialcommand.length());
+
+     /*   std::string orbits ("686.97 365.24");
+        std::string::size_type sz;     // alias of size_t
+        float mars = std::stof (orbits,&sz);
+        float earth = std::stof (orbits.substr(sz));
+         std::cout << "One martian year takes " << (mars/earth) << " Earth years.\n";*/
+
         
         value = values.toFloat();
        
@@ -261,6 +307,16 @@ void loop() {
           feedbackSwitch(false);    
           x = y = th = vx_now = vy_now = w_now = 0;
           feedbackSwitch(true);       
+        }
+        else if(header == "configure"){
+          int _gr, _ppr, max_pwm;
+          float wheel_dia, base_dia;
+          sscanf(values.c_str(),"%d %d %f %f %d", &_gr, &_ppr, &wheel_dia, &base_dia, &max_pwm );
+          Serial.println(wheel_dia);
+          set_parameters(_gr, _ppr, wheel_dia, base_dia, max_pwm);
+        }
+        else if(header == "configure?"){
+          get_parameters();
         }
         // clear all strings
         serialcommand = "";
