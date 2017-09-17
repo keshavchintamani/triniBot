@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-
-
-export ROS_IP=192.168.1.6
-export ROS_MASTER_URI=http://192.168.1.15:11311
-export ROS_HOSTNAME=raspberrypi
-echo $ROS_IP
+export LC_ALL="C"
+#source /opt/ros/kinetic/setup.bash
+source /home/keshavchintamani/trinibot_ws/devel/setup.bash
+#export ROSLAUNCH_SSH_UNKNOWN=1
+export ROS_IP=kc-RPi3-mate.local
+export ROS_MASTER_URI=http://kc-RPi3-mate.local:11311
+#export ROS_HOSTNAME=kc-RPi3-mate
+#echo $ROS_IP
 echo $ROS_MASTER_URI
-source /usr/local/bin/virtualenvwrapper.sh
-source /home/pi/rosws/devel_isolated/setup.bash
-source /home/pi/external-rospacks/devel/setup.bash
-sudo modprobe bcm2835-v4l2
-workon cv3
 exec "$@"

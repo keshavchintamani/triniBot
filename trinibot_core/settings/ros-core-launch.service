@@ -1,0 +1,8 @@
+[Unit]
+After=avahi-daemon.service
+
+[Service]
+ExecStart=/home/keshavchintamani/trinibot_ws/src/trinibot_core/launch/launch-roscore-onboot.sh
+
+[Install]
+WantedBy=default.target
