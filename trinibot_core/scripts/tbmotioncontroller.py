@@ -53,7 +53,7 @@ def listener():
     xy = 0
     robot = TrackedTrinibot(xy, sys.argv[1])
     #Set gains to 10, 1, 1
-    robot.setgains(10, 1, 1)
+    robot.setgains(int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
     r = rospy.Rate(60)
     odom_old = Odometry()
     odom = Odometry()

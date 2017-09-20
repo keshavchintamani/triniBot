@@ -11,6 +11,7 @@ D2R = 0.0174533
 
 def Start():
     sense=SenseHat()
+    sense.clear()
     rospy.init_node('sense_hat', anonymous=True)
     
     #Setup the publishers
