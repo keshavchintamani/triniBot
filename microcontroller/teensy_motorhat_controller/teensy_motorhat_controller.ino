@@ -257,8 +257,8 @@ void loop() {
         }
         time_last = time_now;
         increment_counter++;
-        //sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f\r", x, y, th, vx_now, vy_now, w_now);
-        sprintf(msg,"%f\r", x);
+        sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f\r", x, y, th, vx_now, vy_now, w_now);
+        /*sprintf(msg,"%f\r", x);*/
         Serial.println(msg);
         /*SendValueCoordinatesDeg(70, (int32_t) (x*1000000));
         SendValueCoordinatesDeg(71, (int32_t) (y*1000000));
