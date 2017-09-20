@@ -30,7 +30,7 @@ class robotGUI_tk(Tkinter.Tk):
         labelStatus = Tkinter.Label(self,  text = u"Status", anchor="w", fg="white", bg ="blue")
         labelStatus.grid(column=0, row=0, sticky='EW')
 
-        self.angleEntryVar = Tkinter.StringVar(value="30")
+        self.angleEntryVar = Tkinter.StringVar(value="0.39275")
 
         labelAngle = Tkinter.Label(self, text = u"Angular", anchor="w", fg="white", bg ="blue")
         labelAngle.grid(column=0, row=1, sticky='EW')
