@@ -11,35 +11,42 @@ import nav_msgs.msg
 def handle_trinibot_pose(odo):
     
     br = tf2_ros.TransformBroadcaster()
-    odom_tr = geometry_msgs.msg.TransformStamped()
-    odom_tr.header.stamp = rospy.Time.now()
-    odom_tr.header.frame_id = "map"
-    odom_tr.child_frame_id = "odom"
+    # odom_tr = geometry_msgs.msg.TransformStamped()
+    # odom_tr.header.stamp = rospy.Time.now()
+    # odom_tr.header.frame_id = "map"
+    # odom_tr.child_frame_id = "odom"
+    #
+    # #Assuuames the odometry is measured from mid point between the two tracks
+    # odom_tr.transform.translation.x = odom_tr.transform.translation.z = \
+    #     odom_tr.transform.translation.y = 0
+    # odom_tr.transform.rotation.x = odom_tr.transform.rotation.z = \
+    #     odom_tr.transform.rotation.y = 0
+    # odom_tr.transform.rotation.w = 1
+    #
+    # odom_tr.transform.translation = odo.pose.pose.position
+    # odom_tr.transform.translation.z = 0.0195
+    # odom_tr.transform.rotation = odo.pose.pose.orientation
+    #
+    # br.sendTransform(odom_tr)
 
-    #Assumes the odometry is measured from mid point between the two tracks
-    odom_tr.transform.translation = odo.pose.pose.position
-    odom_tr.transform.translation.z = 0.0195
-    odom_tr.transform.rotation = odo.pose.pose.orientation
-
-    br.sendTransform(odom_tr)
-
+    #Transform of baselink in a fixed odometry frame. note that the odometry frame will move if reset
     baselink_tr = geometry_msgs.msg.TransformStamped()
     baselink_tr.header.stamp = rospy.Time.now()
     baselink_tr.header.frame_id = "odom"
     baselink_tr.child_frame_id = "base_link"
 
-    baselink_tr.transform.translation.x = baselink_tr.transform.translation.z = \
-    baselink_tr.transform.translation.y = 0
-    baselink_tr.transform.rotation.x = baselink_tr.transform.rotation.z = \
-    baselink_tr.transform.rotation.y = 0
-    baselink_tr.transform.rotation.w = 1
+    baselink_tr.transform.translation = odo.pose.pose.position
+    baselink_tr.transform.translation.z = 0
+    baselink_tr.transform.rotation = odo.pose.pose.orientation
 
     br.sendTransform(baselink_tr)
 
+    #Transform from base_link to camera
     camera_tr = geometry_msgs.msg.TransformStamped()
     camera_tr.header.stamp = rospy.Time.now()
     camera_tr.header.frame_id = "base_link"
     camera_tr.child_frame_id = "camera"
+
 
     camera_tr.transform.translation.x = 0.043
     camera_tr.transform.translation.z = 0.0855
@@ -49,6 +56,23 @@ def handle_trinibot_pose(odo):
     camera_tr.transform.rotation.w = 1
 
     br.sendTransform(camera_tr)
+
+    # Transform from base_link to imu
+    imu_tr = geometry_msgs.msg.TransformStamped()
+    imu_tr.header.stamp = rospy.Time.now()
+    imu_tr.header.frame_id = "base_link"
+    imu_tr.child_frame_id = "trinibot_imu"
+
+    #TODO Check
+    imu_tr.transform.translation.x = 0.0
+    imu_tr.transform.translation.z = 0.10
+    imu_tr.transform.translation.y = 0.0
+    imu_tr.transform.rotation.x = 0
+    imu_tr.transform.rotation.y = 0
+    imu_tr.transform.rotation.z = 1
+    imu_tr.transform.rotation.w = 0
+
+    br.sendTransform(imu_tr)
 
 if __name__ == '__main__':
     rospy.init_node('trinibot_tf_publisher', anonymous=True)

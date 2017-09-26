@@ -51,13 +51,13 @@ int gear_ratio = 100;
 int ppr=12;
 float pulse_deg=3.33;//Number of encoder pulses per degree
 float pulse_deg_base= 7.59; //Round off - should be 12.38 insted
-int max_pwm=250;
+int max_pwm=200;
 
 //For tracks
 float radius = 19.5; //mm
 float base_radius = 48.3; //mm
 float circumference = 122.5221135; //mm
-int encoders_wheelrotation = 1800; //pulses
+int encoders_wheelrotation = 1200; //pulses
 int encoders_baserotation = 2769; //pulse
 #define D2R 0.0174533
 #define R2D 57.295
@@ -65,7 +65,7 @@ int encoders_baserotation = 2769; //pulse
 
 //Converts speed in m/s into pulses/sec @ specified velocity sampling rate period
 //Note: the speed constant is the required wheel speed (ref xSpeed, ySpeed) at the VELOCITY SAMPLING RATE, i.e. (setpoint in pulses per second) *(1/VELOCITY SAMPLING RATE)
-//That is: it is 
+//That is: it is
 float speed_constant = (float) pulse_deg*(R2D/(radius*pow(10,-3)))/VELOCITY_SAMPLING_RATE;
 
 //Converts speed in deg/s into pulses/sec @ specified velocity sampling rate period
@@ -134,6 +134,17 @@ float x=0,y=0, th=0;
 float v_now = 0;
 long increment_counter =0;
 boolean fbswitch = false;
+
+
+//All things to send data over Serial
+#define ST 0xaa
+#define ET 0xbb
+typedef union
+{
+ float value;
+ uint8_t bytes[4];
+} FLOATUNION_t;
+
 //All things MotorHat Related
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
@@ -178,10 +189,12 @@ void motorsStop(){
   leftMotor->run(RELEASE);
   rightMotor->run(RELEASE);
 }
+
+
 void setup() {
 
   feedbackSwitch(false);
-  Serial.begin(57600);
+  Serial.begin(115200);
   serialcommand.reserve(200);
   AFMS.begin();  // create with the default frequency 1.6KHz
   pinMode(xQ1Pin, INPUT);
@@ -196,14 +209,14 @@ void setup() {
   for (int i=0; i<100; i++) {
     leftMotor->setSpeed(i);
     rightMotor->setSpeed(i);
-    delay(10);
+    delay(1);
   }
   leftMotor->run(BACKWARD);
   rightMotor->run(BACKWARD);
   for (int i=0; i<100; i++) {
     leftMotor->setSpeed(i);
     rightMotor->setSpeed(i);
-    delay(10);
+    delay(1);
   }
   leftMotor->setSpeed(0);
   rightMotor->setSpeed(0);
@@ -225,9 +238,8 @@ void loop() {
       Serial.print(copy_xSpeed);
       Serial.print(" ");
       Serial.println(copy_ySpeed);*/
-      
-    sei(); // reenable the interrupt
 
+    sei(); // reenable the interrupt
     if(fbswitch){
 
        //Calculate the elapsed time
@@ -247,10 +259,9 @@ void loop() {
         }
         time_last = time_now;
         increment_counter++;
-        sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f\r", x, y, th, vx_now, vy_now, w_now);
-        Serial.println(msg);
+        //sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f\r", x, y, th, vx_now, vy_now, w_now);
+        //Serial.println(msg);
        
-        
     }
 
     if (stringComplete) {
@@ -259,11 +270,13 @@ void loop() {
         value = values.toFloat();
 
         if (header == "stop" ){
-          encoder.end();
+          //encoder.end();
           motorsStop();
+          delay(10);
           feedbackSwitch(false);
-          modeAngular = -1; //After a reset or stop, go into an unknown state
+          //modeAngular = -1; //After a reset or stop, go into an unknown state
           increment_counter=0;
+          vx_now = vy_now = w_now = 0;
         }
         else if (header == "goto"){
           //in meters
@@ -284,26 +297,31 @@ void loop() {
           feedbackSwitch(false);
           //Divide the value from m/s to the setpoint in degree/sec
           float setpoint = -value*speed_constant;
-          setPoint(VELOCITY, 0,  setpoint, -setpoint);
+          //cli();
           encoder.end();
-          setDirection();
+            setPoint(VELOCITY, 0,  setpoint, -setpoint);
+            setDirection();
+          //sei();
           encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz*/
           feedbackSwitch(true);
         }
         else if (header == "spin"){
+          if (value < -3.142 || value > 3.142)
+             return;
           feedbackSwitch(false);
           /*
           //Assume incoming request is in degrees/sec so convert into rad/s
           //setpoint is expressed as the target wheel speed in pulses/degree as a proportion of the base radius
-          v = rw // wheel radius * wheel angular velocity 
-          v = RW // base radius * base angular velocity 
-          w = setpoint = R/r*(target base spin) 
+          v = rw // wheel radius * wheel angular velocity
+          v = RW // base radius * base angular velocity
+          w = setpoint = R/r*(target base spin)
           */
           float setpoint = value*speed_constant*base_radius*pow(10,-3);
-          //
-          setPoint(VELOCITY, 1, -setpoint, -setpoint);
           encoder.end();
-          setDirection();
+          //cli();
+            setPoint(VELOCITY, 1, -setpoint, -setpoint);
+            setDirection();
+          //sei();
           encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz
           feedbackSwitch(true);
         }
@@ -335,6 +353,13 @@ void loop() {
         stringComplete = false;
         header ="";
     }
+
+    SendValue(73, x);
+    SendValue(74, y);
+    SendValue(75, th);
+    SendValue(76, vx_now);
+    SendValue(77, vy_now);
+    SendValue(78, w_now);
     delay(10);
 }
 
@@ -519,9 +544,97 @@ void serialEvent(){
 
 }
 
+void SendValueCoordinatesDeg(uint16_t id, int32_t value)
+{
+  byte data[10];
+  byte data2[20];
+  byte msg[30];
+  int m = 0;
+
+  data[m++] = (byte) id;
+  data[m++] = (byte) id >> 8;
+  data[m++] =  (byte) value;
+  data[m++] =  (byte) (value >> 8);
+  data[m++] =  (byte) (value >> 16);
+  data[m++] =  (byte) (value >> 24);
+
+  //compose the final msg with checkSum
+  int n = 0;
+  int chSum = 0;
+  for (byte i=0;i<m;i++)
+  {
+    data2[n++] = data[i];
+    chSum ^= data2[n-1];
+  }
+  data2[n++] = (byte)chSum;
+  data2[n++] = (byte)chSum >> 8;
+
+ //Check for ST & ET within the data and checksum and mark them as data using ST
+ int j = 0;
+ msg[j++] = ST; //add start transmission
+ for (byte i=0;i<n;i++)
+  {
+    msg[j++] = data2[i];
+    if (data2[i] == ST or data2[i] == ET)
+    {//mark as transparent
+      msg[j++] = ST;
+    }
+  }
+  msg[j++] = ST;
+  msg[j++] = ET;
+
+  //print
+  Serial.write(msg,j);
+}
+
+void SendValue(uint16_t id, float value)
+{
+  byte data[10];
+  byte data2[20];
+  byte msg[30];
+  int m = 0;
+  FLOATUNION_t dataFloat;
+  dataFloat.value = value;
+  //data.length = sizeof(payload);
+
+  data[m++] = (byte) id;
+  data[m++] = (byte) id >> 8;
+  //int32_t val = (int32_t) (value * pow(10,scale));
+  data[m++] = dataFloat.bytes[0];
+  data[m++] = dataFloat.bytes[1];
+  data[m++] = dataFloat.bytes[2];
+  data[m++] = dataFloat.bytes[3];
+  //data[m++] = scale;
+
+  //compose the final msg
+  int n = 0;
+  int chSum = 0;
+  for (byte i = 0; i < m; i++)
+  {
+    data2[n++] = data[i];
+    chSum ^= data2[n - 1];
+  }
+  data2[n++] = (byte)chSum;
+  data2[n++] = (byte)chSum >> 8;
+
+  //Check for ST & ET within the data and checksum and mark them as data using ST
+  int j = 0;
+  msg[j++] = ST; //add start transmission
+  for (byte i = 0; i < n; i++)
+  {
+    msg[j++] = data2[i];
+    if (data2[i] == ST or data2[i] == ET)
+    { //mark as transparent
+      msg[j++] = ST;
+    }
+  }
+  msg[j++] = ST;
+  msg[j++] = ET;
+
+  Serial.write(msg, j);
+}
 
 // see.stanford.edu/materials/aiircs223a/handout6_Trajectory.pdf
 // developer.mbed.org/cookbook/PID
 // brettbeauregard.com/blog/2011/04/improving-the-beginners-pid-introduction/
 // www.embeddedrelated.com/showarticle/121.php
-

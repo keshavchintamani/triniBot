@@ -47,45 +47,47 @@ def stop_callback(cb):
 def listener():
     global robot, start_reading
     rospy.init_node(node_name, anonymous=True)
-    rospy.Subscriber('/velocity_cmd', Twist , twist_callback)
-    rospy.Subscriber('/string_cmd', String, stop_callback)
+    rospy.Subscriber('/trinibot_gui/velocity_cmd', Twist , twist_callback)
+    rospy.Subscriber('/trinibot_gui/string_cmd', String, stop_callback)
     pub = rospy.Publisher('/trinibot/odometry', Odometry, queue_size= 10)
     xy = 0
-    robot = TrackedTrinibot(xy, sys.argv[1])
-    #Set gains to 10, 1, 1
-    robot.setgains(int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
-    r = rospy.Rate(60)
-    odom_old = Odometry()
+
+    if len(sys.argv) > 1:
+        robot = TrackedTrinibot(xy, sys.argv[1])
+        robot.setgains(int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
+    else:
+        robot = TrackedTrinibot(xy, '/dev/ttyACM0')
+        robot.setgains(100, 1, 1)
+        print "using default serial device and gains"
+
+    r = rospy.Rate(100)
+
     odom = Odometry()
 
     while not rospy.is_shutdown():
-        if(robot.is_running()):
-            res = robot.get_feedback()
-            try:
-                arr = [float(s) for s in res.split()]
-                if len(arr) < 6:
-                    continue
+        #if(robot.is_running()):
+        robot.get_feedback()
 
-                odom.pose.pose.position.x = arr[0]
-                odom.pose.pose.position.y = arr[1]
-                q = transforms.quaternion_from_euler(0, 0, arr[2])
-                odom.pose.pose.orientation.x = q[0]
-                odom.pose.pose.orientation.y = q[1]
-                odom.pose.pose.orientation.z = q[2]
-                odom.pose.pose.orientation.w = q[3]
-                odom.twist.twist.linear.x = arr[3]
-                odom.twist.twist.linear.y = arr[4]
-                odom.twist.twist.angular.z = arr[5]
-                pub.publish(odom)
-                odom_old = odom
-            except ValueError, e:
-                print "error", e, "on value", s
-                continue
-        else:
-            pub.publish(odom_old)
+        odom.header.frame_id = "odom"
+        odom.child_frame_id ="base_link"
+        odom.pose.pose.position.x = float(robot.serial.variables.x['value'])
+        odom.pose.pose.position.y = float(robot.serial.variables.y['value'])
+
+        q = transforms.quaternion_from_euler(0, 0, float(robot.serial.variables.theta['value']))
+
+        odom.pose.pose.orientation.x = q[0]
+        odom.pose.pose.orientation.y = q[1]
+        odom.pose.pose.orientation.z = q[2]
+        odom.pose.pose.orientation.w = q[3]
+
+        odom.twist.twist.linear.x = float(robot.serial.variables.vx['value'])
+        odom.twist.twist.linear.y = float(robot.serial.variables.vy['value'])
+        odom.twist.twist.angular.z = float(robot.serial.variables.omega['value'])
+        #print robot.serial.variables.x['value'], robot.serial.variables.y['value'], robot.serial.variables.theta['value'], \
+        #    robot.serial.variables.vx['value'], robot.serial.variables.vy['value'], robot.serial.variables.omega['value']
+        pub.publish(odom)
 
         r.sleep()
-        # get the gyro values
 
 if __name__ == '__main__':
 
