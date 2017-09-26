@@ -2,13 +2,21 @@
 
 import atexit
 import threading
-from threading import Timer
 import sys
 import time
-import serial
 import logging
 import re
 import signal
+import serial
+import struct
+
+class messageLib:
+    x = dict(mid=73, value=0)
+    y = dict(mid=74, value=0)
+    theta = dict(mid=75, value=0)
+    vx = dict(mid=76, value=0)
+    vy = dict(mid=77, value=0)
+    omega = dict(mid=78, value=0)
 
 class tBSerialReader():
 
@@ -19,45 +27,109 @@ class tBSerialReader():
         self.wspeed_right=0
         self.error_left = 0
         self.error_right = 0
+        self.bytesIn = []
+        self.cleanBytes = []
+        self.mainSwitch = 0
+        self.byteIn = 0
+        self.ST = 0xaa;
+        self.ET = 0xbb;
+        self.STx = '\xaa'
+        self.ETx = '\xbb'
+        self.previousByte = 0
+        self.errors = 0
+        self.variables = messageLib()
+        self.isUpdated = False
+        self.threadstop = False
         self._startserial()
 
     def _startserial(self):
 
         print("Trying to open Serial arduino: %s ", self.devid)
         try:
-            self.Serial = serial.Serial(self.devid, 57600, timeout=1)
+            self.Serial = serial.Serial(self.devid, 115200, timeout=1)
             print("Success: %s ", self.Serial)
             time.sleep(1)
             pass
         except (IOError, ValueError):
             print("Cannot open serial device: %s", self.devid)
             raise IOError
-    
-    def readserial(self):
-        #line = self.Serial.readline()
 
-        #res = re.findall("[-+]?\d+[\.]?\d*", line)
-        try:
-            line = self._readline()
-            return(line)
+    def ProcessMsg(self):
+        b = ''.join(map(chr, self.cleanBytes[0:2]))
+        msgId = struct.unpack('H', b)[0]
 
-        except ValueError:
-            logger.error("Value error exception parsing serial data")
-            pass
+        if msgId == 140 or msgId == 141:
+            b = ''.join(map(chr, self.cleanBytes[2:6]))
+            msgValue = float(struct.unpack('L', b)[0]) / 100
+        else:
+            if msgId == 71 or msgId == 72:
+                b = ''.join(map(chr, self.cleanBytes[2:6]))
+                msgValue = float(struct.unpack('l', b)[0]) / 1000000
+                print msgValue
 
-    def _readline(self):
-        eol = b'\r'
-        leneol = len(eol)
-        line = bytearray()
-        while True:
-            c = self.Serial.read(1)
-            if c:
-                line += c
-                if line[-leneol:] == eol:
-                    break
             else:
-                break
-        return bytes(line)
+                b = ''.join(map(chr, self.cleanBytes[2:6]))
+                msgValue = struct.unpack('<f', b)[0]
+
+        for a in dir(self.variables):
+            if not a.startswith('__'):
+                var = getattr(self.variables, a)
+                if var['mid'] == msgId:
+                    var['value'] = msgValue
+
+        self.isUpdated = True
+
+    def ProcessRawBytes(self):
+        # clean markers
+        self.cleanBytes = []
+        skip = False
+        checkS = 0
+        for i in range(0, len(self.bytesIn)):
+            if skip:
+                skip = False
+                continue
+            if self.bytesIn[i] == self.ST or self.bytesIn[i] == self.ET:
+                self.cleanBytes.append(self.bytesIn[i])
+                self.skip = True
+            else:
+                self.cleanBytes.append(self.bytesIn[i])
+            if len(self.cleanBytes) < 7:
+                checkS ^= self.bytesIn[i]
+        # checkSum
+        checkSint = self.cleanBytes[6] | self.cleanBytes[7] << 8
+        if checkS == checkSint:
+            self.ProcessMsg()
+
+    def ProcessByteIn(self):
+        if self.byteIn == self.STx and self.mainSwitch == 0:
+            self.mainSwitch = 1
+            self.bytesIn = []
+            return
+        if self.byteIn == self.ETx and self.mainSwitch == 1 and self.previousByte == self.STx:
+            self.mainSwitch = 0
+            self.bytesIn = bytearray(self.bytesIn)
+            try:
+                self.ProcessRawBytes()
+            except:
+                print 'error'
+                self.errors += 1
+
+        if len(self.bytesIn) > 20:
+            self.errors += 1
+            print 'error'
+            self.mainSwitch = 0
+            self.bytesIn = []
+            return
+        else:
+            self.bytesIn.append(self.byteIn)
+
+    def readSerial(self):
+
+        while self.Serial.inWaiting() > 0:
+            self.byteIn = self.Serial.read(1)
+            self.ProcessByteIn()
+            self.previousByte = self.byteIn
+        pass
 
     def writeserial(self, message):
         try:
@@ -140,7 +212,7 @@ class TrackedTrinibot():
        self.serial.writeserial(command)
 
     def get_feedback(self):
-        return(self.serial._readline())
+        return(self.serial.readSerial())
 
     def is_running(self):
         return(self.stopped)

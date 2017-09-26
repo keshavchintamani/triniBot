@@ -189,10 +189,12 @@ void motorsStop(){
   leftMotor->run(RELEASE);
   rightMotor->run(RELEASE);
 }
+
+
 void setup() {
 
   feedbackSwitch(false);
-  Serial.begin(57600);
+  Serial.begin(115200);
   serialcommand.reserve(200);
   AFMS.begin();  // create with the default frequency 1.6KHz
   pinMode(xQ1Pin, INPUT);
@@ -257,22 +259,9 @@ void loop() {
         }
         time_last = time_now;
         increment_counter++;
-        sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f\r", x, y, th, vx_now, vy_now, w_now);
-        /*sprintf(msg,"%f\r", x);*/
-        Serial.println(msg);
-        /*SendValueCoordinatesDeg(70, (int32_t) (x*1000000));
-        SendValueCoordinatesDeg(71, (int32_t) (y*1000000));
-        SendValueCoordinatesDeg(72, (int32_t) (th*1000000));
-        SendValueCoordinatesDeg(73, (int32_t) (vx_now*1000000));
-        SendValueCoordinatesDeg(74, (int32_t) (vy_now*1000000));
-        SendValueCoordinatesDeg(75, (int32_t) (w_now*1000000));
-        SendValue(70, x);
-        SendValue(71, y);
-        SendValue(72, th*1000000);
-        SendValue(73, vx_now*1000000);
-        SendValue(74, vy_now*1000000);
-        SendValue(75, w_now*1000000);*/
-
+        //sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f\r", x, y, th, vx_now, vy_now, w_now);
+        //Serial.println(msg);
+       
     }
 
     if (stringComplete) {
@@ -281,11 +270,13 @@ void loop() {
         value = values.toFloat();
 
         if (header == "stop" ){
-          encoder.end();
+          //encoder.end();
           motorsStop();
+          delay(10);
           feedbackSwitch(false);
-          modeAngular = -1; //After a reset or stop, go into an unknown state
+          //modeAngular = -1; //After a reset or stop, go into an unknown state
           increment_counter=0;
+          vx_now = vy_now = w_now = 0;
         }
         else if (header == "goto"){
           //in meters
@@ -306,9 +297,11 @@ void loop() {
           feedbackSwitch(false);
           //Divide the value from m/s to the setpoint in degree/sec
           float setpoint = -value*speed_constant;
-          setPoint(VELOCITY, 0,  setpoint, -setpoint);
+          //cli();
           encoder.end();
-          setDirection();
+            setPoint(VELOCITY, 0,  setpoint, -setpoint);
+            setDirection();
+          //sei();
           encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz*/
           feedbackSwitch(true);
         }
@@ -324,10 +317,11 @@ void loop() {
           w = setpoint = R/r*(target base spin)
           */
           float setpoint = value*speed_constant*base_radius*pow(10,-3);
-          //
-          setPoint(VELOCITY, 1, -setpoint, -setpoint);
           encoder.end();
-          setDirection();
+          //cli();
+            setPoint(VELOCITY, 1, -setpoint, -setpoint);
+            setDirection();
+          //sei();
           encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz
           feedbackSwitch(true);
         }
@@ -359,6 +353,13 @@ void loop() {
         stringComplete = false;
         header ="";
     }
+
+    SendValue(73, x);
+    SendValue(74, y);
+    SendValue(75, th);
+    SendValue(76, vx_now);
+    SendValue(77, vy_now);
+    SendValue(78, w_now);
     delay(10);
 }
 
@@ -608,31 +609,31 @@ void SendValue(uint16_t id, float value)
   //compose the final msg
   int n = 0;
   int chSum = 0;
-  for (byte i=0;i<m;i++)
+  for (byte i = 0; i < m; i++)
   {
     data2[n++] = data[i];
-    chSum ^= data2[n-1];
+    chSum ^= data2[n - 1];
   }
   data2[n++] = (byte)chSum;
   data2[n++] = (byte)chSum >> 8;
 
- //Check for ST & ET within the data and checksum and mark them as data using ST
- int j = 0;
- msg[j++] = ST; //add start transmission
- for (byte i=0;i<n;i++)
+  //Check for ST & ET within the data and checksum and mark them as data using ST
+  int j = 0;
+  msg[j++] = ST; //add start transmission
+  for (byte i = 0; i < n; i++)
   {
     msg[j++] = data2[i];
     if (data2[i] == ST or data2[i] == ET)
-    {//mark as transparent
+    { //mark as transparent
       msg[j++] = ST;
     }
   }
   msg[j++] = ST;
   msg[j++] = ET;
 
-  //print
-  Serial.write(msg,j);
+  Serial.write(msg, j);
 }
+
 // see.stanford.edu/materials/aiircs223a/handout6_Trajectory.pdf
 // developer.mbed.org/cookbook/PID
 // brettbeauregard.com/blog/2011/04/improving-the-beginners-pid-introduction/

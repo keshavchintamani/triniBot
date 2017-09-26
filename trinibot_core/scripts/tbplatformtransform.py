@@ -16,7 +16,7 @@ def handle_trinibot_pose(odo):
     # odom_tr.header.frame_id = "map"
     # odom_tr.child_frame_id = "odom"
     #
-    # #Assumes the odometry is measured from mid point between the two tracks
+    # #Assuuames the odometry is measured from mid point between the two tracks
     # odom_tr.transform.translation.x = odom_tr.transform.translation.z = \
     #     odom_tr.transform.translation.y = 0
     # odom_tr.transform.rotation.x = odom_tr.transform.rotation.z = \
@@ -56,6 +56,23 @@ def handle_trinibot_pose(odo):
     camera_tr.transform.rotation.w = 1
 
     br.sendTransform(camera_tr)
+
+    # Transform from base_link to imu
+    imu_tr = geometry_msgs.msg.TransformStamped()
+    imu_tr.header.stamp = rospy.Time.now()
+    imu_tr.header.frame_id = "base_link"
+    imu_tr.child_frame_id = "trinibot_imu"
+
+    #TODO Check
+    imu_tr.transform.translation.x = 0.0
+    imu_tr.transform.translation.z = 0.10
+    imu_tr.transform.translation.y = 0.0
+    imu_tr.transform.rotation.x = 0
+    imu_tr.transform.rotation.y = 0
+    imu_tr.transform.rotation.z = 1
+    imu_tr.transform.rotation.w = 0
+
+    br.sendTransform(imu_tr)
 
 if __name__ == '__main__':
     rospy.init_node('trinibot_tf_publisher', anonymous=True)

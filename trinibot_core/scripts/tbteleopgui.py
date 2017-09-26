@@ -35,7 +35,7 @@ class robotGUI_tk(Tkinter.Tk):
         labelAngle = Tkinter.Label(self, text = u"Angular", anchor="w", fg="white", bg ="blue")
         labelAngle.grid(column=0, row=1, sticky='EW')
 
-        self.distanceEntryVar = Tkinter.StringVar(value="0.01")
+        self.distanceEntryVar = Tkinter.StringVar(value="0.1")
 
         labelSpeed = Tkinter.Label(self, text = u"Linear", anchor="w", fg="white", bg ="blue")
         labelSpeed.grid(column=0, row=2, sticky='EW')
@@ -167,6 +167,13 @@ class robotGUI_tk(Tkinter.Tk):
         self.twist_pub.publish(twist)
         rospy.loginfo(twist)
 
+    def exitApp(self):
+        self.destroy();
+
+def shutdownHook():
+    app.exitApp()
+
+
 if __name__ == '__main__':
     try:
         rospy.init_node('teleop_gui', anonymous=True)
@@ -175,7 +182,10 @@ if __name__ == '__main__':
         pose_pub = rospy.Publisher("trinibot_gui/position_cmd", Pose, queue_size=1)
         vel_pub = rospy.Publisher("trinibot_gui/velocity_cmd", Twist, queue_size=1)
         stop_pub = rospy.Publisher("trinibot_gui/string_cmd", String, queue_size=1)
+        rospy.on_shutdown(shutdownHook)
         app.mainloop()
+
+
 
     except rospy.ROSInterruptException:
         pass
