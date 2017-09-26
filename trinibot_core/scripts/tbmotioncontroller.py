@@ -47,8 +47,8 @@ def stop_callback(cb):
 def listener():
     global robot, start_reading
     rospy.init_node(node_name, anonymous=True)
-    rospy.Subscriber('/trinibot_gui/velocity_cmd', Twist , twist_callback)
-    rospy.Subscriber('/trinibot_gui/string_cmd', String, stop_callback)
+    rospy.Subscriber('/velocity_cmd', Twist , twist_callback)
+    rospy.Subscriber('/string_cmd', String, stop_callback)
     pub = rospy.Publisher('/trinibot/odometry', Odometry, queue_size= 10)
     xy = 0
 
@@ -84,7 +84,7 @@ def listener():
         odom.twist.twist.linear.y = float(robot.serial.variables.vy['value'])
         odom.twist.twist.angular.z = float(robot.serial.variables.omega['value'])
         #print robot.serial.variables.x['value'], robot.serial.variables.y['value'], robot.serial.variables.theta['value'], \
-        #    robot.serial.variables.vx['value'], robot.serial.variables.vy['value'], robot.serial.variables.omega['value']
+        #robot.serial.variables.vx['value'], robot.serial.variables.vy['value'], robot.serial.variables.omega['value']
         pub.publish(odom)
 
         r.sleep()
