@@ -7,7 +7,7 @@ export ROS_IP=kc-RPi3-mate.local
 export ROS_MASTER_URI=http://kc-RPi3-mate.local:11311
 #export ROS_HOSTNAME=kc-RPi3-mate
 #echo $ROS_IP
-export LD_LIBRARY_PATH=/opt/softkinetic/DepthSenseSDK/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/softkinetic/DepthSenseSDK/lib
 export DEPTHSENSESDK_DIR=/opt/softkinetic/DepthSenseSDK
 echo $ROS_MASTER_URI
 exec "$@"
