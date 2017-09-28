@@ -132,7 +132,6 @@ float vy_now=0;
 float w_now=0;
 float x=0,y=0, th=0;
 float v_now = 0;
-long increment_counter =0;
 boolean fbswitch = false;
 
 
@@ -232,38 +231,25 @@ void loop() {
     float value = 0;
     cli(); // disable interrupt
       float copy_xSpeed = xSpeed;
-      /*float copy_ySpeed = ySpeed;
-      //long c_xEnc = xEncoder;
-      //long c_yEnc = yEncoder;
-      Serial.print(copy_xSpeed);
-      Serial.print(" ");
-      Serial.println(copy_ySpeed);*/
-
     sei(); // reenable the interrupt
-    if(fbswitch){
-
+  
        //Calculate the elapsed time
-       time_now = millis();
-       dt  = time_now - time_last;
-       //Grab the current speed:
-       v_now = -copy_xSpeed/speed_constant;
-       if(modeAngular == 1){
-          //Calculate the change in angle since last reading
-          w_now = 1*v_now/(base_radius*pow(10,-3));
-          th += w_now*dt*pow(10,-3);
-       }else if (modeAngular == 0){
-          vx_now = cos(th)*v_now;
-          vy_now = sin(th)*v_now;
-          x += (vx_now)*dt*pow(10,-3);
-          y += (vy_now)*dt*pow(10,-3);
-        }
-        time_last = time_now;
-        increment_counter++;
-        //sprintf(msg,"%.3f %.3f %.3f %.3f %.3f %.3f\r", x, y, th, vx_now, vy_now, w_now);
-        //Serial.println(msg);
-       
+    time_now = millis();
+    dt  = time_now - time_last;
+    //Grab the current speed:
+    v_now = -copy_xSpeed/speed_constant;
+    if(modeAngular == 1){
+      //Calculate the change in angle since last reading
+      w_now = 1*v_now/(base_radius*pow(10,-3));
+      th += w_now*dt*pow(10,-3);
+    }else if (modeAngular == 0){
+      vx_now = cos(th)*v_now;
+      vy_now = sin(th)*v_now;
+      x += (vx_now)*dt*pow(10,-3);
+      y += (vy_now)*dt*pow(10,-3);
     }
-
+    time_last = time_now;
+  
     if (stringComplete) {
         header = serialcommand.substring(0, serialcommand.indexOf("_"));
         values = serialcommand.substring(serialcommand.indexOf("_")+1 , serialcommand.length());
@@ -272,10 +258,7 @@ void loop() {
         if (header == "stop" ){
           //encoder.end();
           motorsStop();
-          delay(10);
-          feedbackSwitch(false);
-          //modeAngular = -1; //After a reset or stop, go into an unknown state
-          increment_counter=0;
+          delay(100);
           vx_now = vy_now = w_now = 0;
         }
         else if (header == "goto"){
@@ -284,7 +267,6 @@ void loop() {
           encoder.end();
           setDirection();
           encoder.begin(encoderUpdate, dT);
-          feedbackSwitch(true);
         }
         else if (header == "turn"){
           setPoint(POSITION, 0, -(value/360)  * encoders_baserotation, -(value/360)  * encoders_baserotation);

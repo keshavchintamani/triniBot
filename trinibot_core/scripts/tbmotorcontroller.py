@@ -208,6 +208,7 @@ class TrackedTrinibot():
        return(True)
 
     def setgains(self, kp, ki, kd):
+       print kp, ki, kd
        command = "gains_" + self.addnewline(str(kp)+" "+str(ki)+" "+str(kd))
        self.serial.writeserial(command)
 
