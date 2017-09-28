@@ -11,23 +11,6 @@ import nav_msgs.msg
 def handle_trinibot_pose(odo):
     
     br = tf2_ros.TransformBroadcaster()
-    # odom_tr = geometry_msgs.msg.TransformStamped()
-    # odom_tr.header.stamp = rospy.Time.now()
-    # odom_tr.header.frame_id = "map"
-    # odom_tr.child_frame_id = "odom"
-    #
-    # #Assuuames the odometry is measured from mid point between the two tracks
-    # odom_tr.transform.translation.x = odom_tr.transform.translation.z = \
-    #     odom_tr.transform.translation.y = 0
-    # odom_tr.transform.rotation.x = odom_tr.transform.rotation.z = \
-    #     odom_tr.transform.rotation.y = 0
-    # odom_tr.transform.rotation.w = 1
-    #
-    # odom_tr.transform.translation = odo.pose.pose.position
-    # odom_tr.transform.translation.z = 0.0195
-    # odom_tr.transform.rotation = odo.pose.pose.orientation
-    #
-    # br.sendTransform(odom_tr)
 
     #Transform of baselink in a fixed odometry frame. note that the odometry frame will move if reset
     baselink_tr = geometry_msgs.msg.TransformStamped()
@@ -36,26 +19,42 @@ def handle_trinibot_pose(odo):
     baselink_tr.child_frame_id = "base_link"
 
     baselink_tr.transform.translation = odo.pose.pose.position
-    baselink_tr.transform.translation.z = 0
+    baselink_tr.transform.translation.z = 0.0195
     baselink_tr.transform.rotation = odo.pose.pose.orientation
 
     br.sendTransform(baselink_tr)
 
-    #Transform from base_link to camera
-    camera_tr = geometry_msgs.msg.TransformStamped()
-    camera_tr.header.stamp = rospy.Time.now()
-    camera_tr.header.frame_id = "base_link"
-    camera_tr.child_frame_id = "camera"
+    #Transform from base_link to depth camera
+    depth_camera_tr = geometry_msgs.msg.TransformStamped()
+    depth_camera_tr.header.stamp = rospy.Time.now()
+    depth_camera_tr.header.frame_id = "base_link"
+    depth_camera_tr.child_frame_id = "depth_frame"
 
+    depth_camera_tr.transform.translation.x = 0.073024
+    depth_camera_tr.transform.translation.z = 0.057846 + 0.023
+    depth_camera_tr.transform.translation.y = -0.013
+    depth_camera_tr.transform.rotation.x = 0.707
+    depth_camera_tr.transform.rotation.z = 0
+    depth_camera_tr.transform.rotation.y = 0
+    depth_camera_tr.transform.rotation.w = 0.707
 
-    camera_tr.transform.translation.x = 0.043
-    camera_tr.transform.translation.z = 0.0855
-    camera_tr.transform.translation.y = 0.0245
-    camera_tr.transform.rotation.x = camera_tr.transform.rotation.z = \
-    camera_tr.transform.rotation.y = 0
-    camera_tr.transform.rotation.w = 1
+    br.sendTransform(depth_camera_tr)
 
-    br.sendTransform(camera_tr)
+    # Transform from base_link to depth camera
+    rgb_camera_tr = geometry_msgs.msg.TransformStamped()
+    rgb_camera_tr.header.stamp = rospy.Time.now()
+    rgb_camera_tr.header.frame_id = "depth_frame"
+    rgb_camera_tr.child_frame_id = "rgb_frame"
+
+    rgb_camera_tr.transform.translation.x = 0#0.073024
+    rgb_camera_tr.transform.translation.z = 0#.0574 + 0.023
+    rgb_camera_tr.transform.translation.y = 0.013
+    rgb_camera_tr.transform.rotation.x = 0
+    rgb_camera_tr.transform.rotation.z = 0
+    rgb_camera_tr.transform.rotation.y = 0
+    rgb_camera_tr.transform.rotation.w = 1
+
+    br.sendTransform(rgb_camera_tr)
 
     # Transform from base_link to imu
     imu_tr = geometry_msgs.msg.TransformStamped()
@@ -64,8 +63,8 @@ def handle_trinibot_pose(odo):
     imu_tr.child_frame_id = "trinibot_imu"
 
     #TODO Check
-    imu_tr.transform.translation.x = 0.0
-    imu_tr.transform.translation.z = 0.10
+    imu_tr.transform.translation.x = 0.008
+    imu_tr.transform.translation.z = 0.084788
     imu_tr.transform.translation.y = 0.0
     imu_tr.transform.rotation.x = 0
     imu_tr.transform.rotation.y = 0
