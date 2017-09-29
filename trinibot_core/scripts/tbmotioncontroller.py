@@ -35,16 +35,12 @@ def twist_callback(vel):
         robot.turn_at_rate(vel.angular.z)
         start_reading = True
 
-def string_callback(cb):
-    commands= cb.data.split()[0]
-    vals = cb.data.split()[1:]
-    if commands == "STOP":
+def stop_callback(cb):
+    if cb.data == "STOP":
         robot.stop()
         start_reading = False
-    elif commands =="ODORESET":
+    elif cb.data =="ODORESET":
         robot.reset_odo()
-    elif commands =="GAINS":
-        robot.setgains(int(vals[0]), int(vals[1]), int(vals[2]))
     else:
         rospy.logwarn("%s: Invalid string", node_name)
 
@@ -52,7 +48,7 @@ def listener():
     global robot, start_reading
     rospy.init_node(node_name, anonymous=True)
     rospy.Subscriber('/velocity_cmd', Twist , twist_callback)
-    rospy.Subscriber('/string_cmd', String, string_callback)
+    rospy.Subscriber('/string_cmd', String, stop_callback)
     pub = rospy.Publisher('/trinibot/odometry', Odometry, queue_size= 10)
     xy = 0
 
