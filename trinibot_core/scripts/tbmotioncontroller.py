@@ -79,10 +79,25 @@ def listener():
         odom.pose.pose.orientation.y = q[1]
         odom.pose.pose.orientation.z = q[2]
         odom.pose.pose.orientation.w = q[3]
+        #  axis = x,y,z, r, p, y
+        odom.pose.covariance = [0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01]
 
         odom.twist.twist.linear.x = float(robot.serial.variables.vx['value'])
         odom.twist.twist.linear.y = float(robot.serial.variables.vy['value'])
         odom.twist.twist.angular.z = float(robot.serial.variables.omega['value'])
+
+        odom.twist.covariance = [0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01]
+
         #print robot.serial.variables.x['value'], robot.serial.variables.y['value'], robot.serial.variables.theta['value'], \
         #robot.serial.variables.vx['value'], robot.serial.variables.vy['value'], robot.serial.variables.omega['value']
         pub.publish(odom)

@@ -47,6 +47,16 @@ def Start():
         gyro.orientation.z = quat[0][0][2]
         gyro.orientation.w = quat[0][0][3]
 
+        gyro.orientation_covariance = [0.01, 0.01, 0.01,\
+                                       0.01, 0.01, 0.01,\
+                                       0.01, 0.01, 0.01]
+        gyro.angular_velocity_covariance = [0.01, 0.01, 0.01, \
+                                       0.01, 0.01, 0.01, \
+                                       0.01, 0.01, 0.01]
+        gyro.linear_acceleration_covariance = [0.01, 0.01, 0.01, \
+                                       0.01, 0.01, 0.01, \
+                                       0.01, 0.01, 0.01]
+
         accelerations = np.array([sense.get_accelerometer_raw()['x']*G,sense.get_accelerometer_raw()['y']*G, \
                                   sense.get_accelerometer_raw()['z']*G])
         res = quat_p180y.rotate(accelerations)
