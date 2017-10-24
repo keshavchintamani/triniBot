@@ -13,8 +13,9 @@ def handle_trinibot_pose(odo):
     br = tf2_ros.TransformBroadcaster()
 
     #Transform of baselink in a fixed odometry frame. note that the odometry frame will move if reset
+    time = rospy.Time.now()
     baselink_tr = geometry_msgs.msg.TransformStamped()
-    baselink_tr.header.stamp = rospy.Time.now()
+    baselink_tr.header.stamp = time
     baselink_tr.header.frame_id = "odom"
     baselink_tr.child_frame_id = "base_link"
 
@@ -26,7 +27,7 @@ def handle_trinibot_pose(odo):
 
     #Transform from base_link to depth camera
     depth_camera_tr = geometry_msgs.msg.TransformStamped()
-    depth_camera_tr.header.stamp = rospy.Time.now()
+    depth_camera_tr.header.stamp = time
     depth_camera_tr.header.frame_id = "base_link"
     depth_camera_tr.child_frame_id = "depth_frame"
 
@@ -42,13 +43,13 @@ def handle_trinibot_pose(odo):
 
     # Transform from base_link to depth camera
     rgb_camera_tr = geometry_msgs.msg.TransformStamped()
-    rgb_camera_tr.header.stamp = rospy.Time.now()
+    rgb_camera_tr.header.stamp = time
     rgb_camera_tr.header.frame_id = "depth_frame"
     rgb_camera_tr.child_frame_id = "rgb_frame"
 
     rgb_camera_tr.transform.translation.x = 0#0.073024
-    rgb_camera_tr.transform.translation.z = 0#.0574 + 0.023
-    rgb_camera_tr.transform.translation.y = 0.013
+    rgb_camera_tr.transform.translation.z = -0.026#.0574 + 0.023
+    rgb_camera_tr.transform.translation.y = 0#.026
     rgb_camera_tr.transform.rotation.x = 0
     rgb_camera_tr.transform.rotation.z = 0
     rgb_camera_tr.transform.rotation.y = 0
@@ -58,7 +59,7 @@ def handle_trinibot_pose(odo):
 
     # Transform from base_link to imu
     imu_tr = geometry_msgs.msg.TransformStamped()
-    imu_tr.header.stamp = rospy.Time.now()
+    imu_tr.header.stamp = time
     imu_tr.header.frame_id = "base_link"
     imu_tr.child_frame_id = "trinibot_imu"
 
@@ -68,8 +69,8 @@ def handle_trinibot_pose(odo):
     imu_tr.transform.translation.y = 0.0
     imu_tr.transform.rotation.x = 0
     imu_tr.transform.rotation.y = 0
-    imu_tr.transform.rotation.z = 1
-    imu_tr.transform.rotation.w = 0
+    imu_tr.transform.rotation.z = 0
+    imu_tr.transform.rotation.w = 1
 
     br.sendTransform(imu_tr)
 
@@ -79,7 +80,6 @@ if __name__ == '__main__':
     rospy.Subscriber('/trinibot/odometry',
                      nav_msgs.msg.Odometry,
                      handle_trinibot_pose)
-
     rospy.spin()
 
    

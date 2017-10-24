@@ -129,9 +129,10 @@ class robotGUI_tk(Tkinter.Tk):
         string_pub.publish(reset_odo)
 
     def SendGains(self):
-        rospy.loginfo("Sending gains")
+
         set_gains  = String()
         set_gains.data = "GAINS " + str(self.Kp.get()) + " " + str(self.Ki.get()) + " " + str(self.Kd.get())
+        rospy.loginfo("Sending gains " + set_gains.data)
         string_pub.publish(set_gains)
 
     def OnForwardButtonClick(self):
