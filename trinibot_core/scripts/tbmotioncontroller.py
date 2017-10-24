@@ -77,7 +77,7 @@ def listener():
     while not rospy.is_shutdown():
         #if(robot.is_running()):
         robot.get_feedback()
-
+        odom.header.stamp = rospy.Time.now()
         odom.header.frame_id = "odom"
         odom.child_frame_id ="base_link"
         odom.pose.pose.position.x = float(robot.serial.variables.x['value'])
@@ -118,8 +118,6 @@ def listener():
                                 0.01, 0.01, 0.01, \
                                 0.01, 0.01, 0.01, \
                                 0.01, 0.01, 0.01]
-        #print robot.serial.variables.x['value'], robot.serial.variables.y['value'], robot.serial.variables.theta['value'], \
-        #robot.serial.variables.vx['value'], robot.serial.variables.vy['value'], robot.serial.variables.omega['value']
         pub.publish(odom)
 
         r.sleep()
