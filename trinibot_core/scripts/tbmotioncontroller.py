@@ -41,6 +41,16 @@ def stop_callback(cb):
         start_reading = False
     elif cb.data =="ODORESET":
         robot.reset_odo()
+    elif cb.data[0:4]=="GAINS":
+        vals = cb.data.split()
+        rospy.loginfo("Setting gains to Kp=%d Ki= %d Kd = %d", kp, ki, kd) 
+        try:
+            kp = int(vals[1])
+            ki = int(vals[3])
+            kd = int(vals[2])
+            rospy.loginfo("Setting gains to %d %d %d",kp,kd,ki) 
+        except ValueError:
+            rospy.logerror("Invalid gain value")
     else:
         rospy.logwarn("%s: Invalid string", node_name)
 
@@ -85,8 +95,13 @@ def listener():
                                 0.01, 0.01, 0.01, \
                                 0.01, 0.01, 0.01, \
                                 0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
                                 0.01, 0.01, 0.01]
-
         odom.twist.twist.linear.x = float(robot.serial.variables.vx['value'])
         odom.twist.twist.linear.y = float(robot.serial.variables.vy['value'])
         odom.twist.twist.angular.z = float(robot.serial.variables.omega['value'])
@@ -96,8 +111,13 @@ def listener():
                                 0.01, 0.01, 0.01, \
                                 0.01, 0.01, 0.01, \
                                 0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
+                                0.01, 0.01, 0.01, \
                                 0.01, 0.01, 0.01]
-
         #print robot.serial.variables.x['value'], robot.serial.variables.y['value'], robot.serial.variables.theta['value'], \
         #robot.serial.variables.vx['value'], robot.serial.variables.vy['value'], robot.serial.variables.omega['value']
         pub.publish(odom)

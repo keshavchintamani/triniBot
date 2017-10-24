@@ -15,6 +15,8 @@ G = 9.81
 def Start():
     sense=SenseHat()
     sense.clear()
+    sense.show_letter("T")
+    sense.set_rotation(90)
     rospy.init_node('sense_hat', anonymous=True)
     
     #Setup the publishers
@@ -33,12 +35,13 @@ def Start():
         gyro.header.stamp = rospy.Time.now()
         gyro.header.frame_id="trinibot_imu"
         #convert euler into quaternion
+        print sense.get_orientation_radians()['roll'], sense.get_orientation_radians()['pitch'], sense.get_orientation_radians()['yaw']
         quat = tf.transformations.quaternion_from_euler(sense.get_orientation_degrees()['roll']*D2R, \
                                                 sense.get_orientation_degrees()['pitch']*D2R, \
                                                 sense.get_orientation_degrees()['yaw']*D2R) 
         
-        #quat_n90x = Quaternion(axis=[1,0,0], angle=0)#3.14159265) 
-        quat= quat_NED2ENU(quat)
+        quat_n90z = Quaternion(axis=[0,0,1], angle=3.14159265/2) 
+        quat= quat_NED2ENU(quat)#*quat_n90z
         #quat_enu = Quaternion(quat[0][0][0],quat[0][0][1], quat[0][0][2], quat[0][0][3])
         #quat =  quat_enu*quat_n90x
         quat_p180y = Quaternion(axis=[0, 1, 0], angle=3.14159265)
@@ -60,7 +63,7 @@ def Start():
         accelerations = np.array([sense.get_accelerometer_raw()['x']*G,sense.get_accelerometer_raw()['y']*G, \
                                   sense.get_accelerometer_raw()['z']*G])
         res = quat_p180y.rotate(accelerations)
-        gyro.linear_acceleration.x = res[0]
+        gyro.linear_acceleration.x = -res[0]
         gyro.linear_acceleration.y = -res[1]
         gyro.linear_acceleration.z = -res[2]
         angular_velocities = np.array([sense.get_gyroscope_raw()['x'], sense.get_gyroscope_raw()['y'], \
