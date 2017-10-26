@@ -11,7 +11,6 @@ import nav_msgs.msg
 def handle_trinibot_pose(odo):
     
     br = tf2_ros.TransformBroadcaster()
-
     #Transform of baselink in a fixed odometry frame. note that the odometry frame will move if reset
     time = rospy.Time.now()
     baselink_tr = geometry_msgs.msg.TransformStamped()
@@ -73,6 +72,23 @@ def handle_trinibot_pose(odo):
     imu_tr.transform.rotation.w = 1
 
     br.sendTransform(imu_tr)
+
+    #Transform from base_link to lazer_scan
+    lazer_tr = geometry_msgs.msg.TransformStamped()
+    lazer_tr.header.stamp = time
+    lazer_tr.header.frame_id = "depth_frame"
+    lazer_tr.child_frame_id = "lazer_frame"
+
+    lazer_tr.transform.translation.x = 0#0.073024
+    lazer_tr.transform.translation.z = 0#0.057846 + 0.023
+    lazer_tr.transform.translation.y = 0#-0.013
+    lazer_tr.transform.rotation.x = -0.707
+    lazer_tr.transform.rotation.z = 0
+    lazer_tr.transform.rotation.y = 0
+    lazer_tr.transform.rotation.w = 0.707
+
+    br.sendTransform(lazer_tr)
+
 
 if __name__ == '__main__':
     rospy.init_node('trinibot_tf_publisher', anonymous=True)
