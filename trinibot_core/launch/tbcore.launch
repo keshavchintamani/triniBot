@@ -7,8 +7,11 @@
     <arg name="ip_c2i" default = "kc.local"/>
     <arg name="machine_bot_user" default = "keshavchintamani"/>
     <arg name="machine_c2i_user" default = "kc"/>
+    <arg name="depth_camera" default="trinibot/ds525" />
+    <!-- Parameters -->
+    <!--<param name="target_frame" type="string" value="lazer_frame" />-->
+    <param name="ds_camera/publish_tf" type="bool" value="false" />
 
-    <!--<env name="ROS_MASTER_URI" value="http://kc-RPi3-mate.local:11311"/>-->
 
     <machine name="$(arg machine_c2i)"
              address="$(arg ip_c2i)"
@@ -26,49 +29,83 @@
     </machine>
 
     <!-- Geometry-->
-
-    <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_c2i)" respawn="false" output="screen">
-    </node>
-    <!-- Image pipeline  -->
-    <node pkg="ros_depthsense_camera" type="depthsense_camera_node" name="trinibot_camera" args="_autofocus=1 _image_width:=320 _image_height:=240 _pixel_format:=&quot;yuyv&quot;" machine ="$(arg machine_bot)" respawn="false" output="screen">
+    <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_bot)" respawn="false" output="screen">
     </node>
 
-    <!--<node pkg="trinibot_core" type="tbimageflip.py" name="imageflip" machine ="$(arg machine_c2i)" respawn="false" output="screen" >
-        <remap from="/camera/image" to="/trinibot_camera/image_raw/compressed"  />
-        <remap from="/camera_info" to= "/trinibot_camera/camera_info"  />
+    <!-- Camera and Sensors-->
+    <!-- Setup the DS525-->
+    <node pkg="ros_depthsense_camera" type="depthsense_camera_node" name="trinibot_ds525" machine ="$(arg machine_bot)" respawn="true" output="screen">
+        <remap from="/vertex_data" to= "$(arg depth_camera)/vertex_data"  />
+        <remap from="/vertex_rgb_data" to= "$(arg depth_camera)/vertex_rgb_data"  />
+        <remap from="/rgb_image" to= "$(arg depth_camera)/rgb_image"  />
+        <remap from="/depth_image" to= "$(arg depth_camera)/depth_image"  />
+        <remap from="/camera_info" to= "$(arg depth_camera)/camera_info"  />
+        <remap from="/confidence_image" to= "$(arg depth_camera)/confidence_image"  />
+        <remap from="/accelerations" to= "$(arg depth_camera)/accelerations"  />
     </node>
-    -->
+    <!-- imu, compass, temperature and humidity from the sensehat-->
+    <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(arg machine_bot)" respawn="false" />
 
-    <!-- Motion control -->
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 10 1 1" name="robotcontroller" machine="$(arg machine_bot)" respawn="false" output="screen">
+    <!-- Create a fake laser scan -->
+    <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
+
+        <remap from="cloud_in" to="$(arg depth_camera)/vertex_data"/>
+        <remap from="scan" to="$(arg depth_camera)/laserscan"/>
+        <rosparam>
+            target_frame: lazer_frame # Leave disabled to output scan in pointcloud frame
+            transform_tolerance: 0.01
+            min_height: 0.0
+            max_height: 1.0
+
+            angle_min: -1.5708 # -M_PI/2
+            angle_max: 1.5708 # M_PI/2
+            angle_increment: 0.0087 # M_PI/360.0
+            scan_time: 0.3333
+            range_min: 0.45
+            range_max: 4.0
+            use_inf: true
+
+            # Concurrency level, affects number of pointclouds queued for processing and number of threads used
+            # 0 : Detect number of cores
+            # 1 : Single threaded
+            # 2->inf : Parallelism level
+            concurrency_level: 1
+        </rosparam>
+
+    </node>
+
+    <!-- Motion control-->
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 100 1 1" name="robotcontroller" machine="$(arg machine_bot)" respawn="true" output="screen">
         <remap from="/velocity_cmd" to="/trinibot_gui/velocity_cmd"  />
         <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
     </node>
 
-    <!-- Sensors -->
-    <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(arg machine_bot)" respawn="false" />
-    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" machine="$(arg machine_c2i)" clear_params="true"/>
+    <!-- Transforms and Filters-->
     <rosparam command="load" file="$(find trinibot_core)/params/tb_ekf.yaml" />
+    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" machine="$(arg machine_bot)" clear_params="false"/>
 
-    <!-- Marker Tracking -->
+    <!-- Mapping -->
+    <node pkg="gmapping" type="slam_gmapping" name="gmapper"  machine ="$(arg machine_c2i)" respawn="false" output="screen">
+        <remap from="scan" to="$(arg depth_camera)/laserscan"/>
+        <!--<rosparam>
+            For the future
+        </rosparam> -->
+    </node>
 
+    <!--GUI-->
     <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />
+    <node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/rgb_image _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen">
+        <remap from="image" to="$(arg depth_camera)/rgb_image"/>
+        <rosparam>
+            image_transport: compressed
+        </rosparam>
+    </node>
+    <node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />
 
-
-
-    <node pkg="image_view" type="image_view" name="aruco_viewer"  args="image:=/trinibot_camera/image_flipped _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen" />
-
+</launch>
+<!--args ="-d $HOME/.rviz/default.rviz"-->
 <!--GUIs
     <node pkg="ORB_SLAM2" type="Mono" name="orbslam" args="$(find trinibot_core)/settings/ORBVoc.txt $(find trinibot_core)/settings/color-001-ORBSettings.yaml"  machine="$(arg machine_c2i)" respawn="false">
         <remap from="/camera/image_raw" to="trinibot_camera/image_flipped/raw"/>
       </node>
-     -->
-
-
-</launch>
-
-<!--
-
-#Use this - calls a bash script on the RPi to invoke a rosservice call (to start the raspicam node)
-    <node pkg="trinibot_core" type="raspicam_startcamera.bash" name="startcamera" machine="$(machine_bot)" respawn="false" output="screen" />
 -->
