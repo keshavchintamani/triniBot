@@ -172,6 +172,11 @@ class TrackedTrinibot():
     def set_running(self, val):
         self.stopped = val
 
+    def twist(self, vx, vy, w):
+        command= "twist_"+str(vx)+" " + str(vy) + " " + self.addnewline(str(w))
+        self.logger.info(command)
+        self.serial.writeserial(command)
+
     def drive_at_speed(self, target_speed=100.0):
        self.set_running(True)
        command = "speed_"+ self.addnewline(str(target_speed))

@@ -23,17 +23,7 @@ start_reading = False
 
 def twist_callback(vel):
 
-    start_reading = False
-    if (vel.linear.x < 0 or vel.linear.x > 0) and (vel.angular.z < 0 or vel.angular.z > 0):
-        rospy.logerr("%s cannot execute linear and angular velocities simultaneously")
-        return
-
-    if vel.linear.x < 0 or vel.linear.x > 0:
-        robot.drive_at_speed(vel.linear.x)
-        start_reading = True
-    elif vel.angular.z < 0 or vel.angular.z > 0:
-        robot.turn_at_rate(vel.angular.z)
-        start_reading = True
+    robot.twist(vel.linear.x, vel.linear.y, vel.angular.z)
 
 def stop_callback(cb):
     if cb.data == "STOP":
