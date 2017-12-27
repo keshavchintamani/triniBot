@@ -29,7 +29,7 @@
     </machine>
 
     <!-- Geometry-->
-    <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_bot)" respawn="false" output="screen">
+    <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_c2i)" respawn="false" output="screen">
     </node>
 
     <!-- Camera and Sensors-->
@@ -69,20 +69,20 @@
             # 0 : Detect number of cores
             # 1 : Single threaded
             # 2->inf : Parallelism level
-            concurrency_level: 1
+            concurrency_level: 3
         </rosparam>
 
     </node>
 
     <!-- Motion control-->
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 100 1 1" name="robotcontroller" machine="$(arg machine_bot)" respawn="true" output="screen">
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 100 1 1" name="robotcontroller" machine="$(arg machine_c2i)" respawn="true" output="screen">
         <remap from="/velocity_cmd" to="/trinibot_gui/velocity_cmd"  />
         <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
     </node>
 
     <!-- Transforms and Filters-->
     <rosparam command="load" file="$(find trinibot_core)/params/tb_ekf.yaml" />
-    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" machine="$(arg machine_bot)" clear_params="false"/>
+    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" machine="$(arg machine_c2i)" clear_params="false"/>
 
     <!-- Mapping -->
     <node pkg="gmapping" type="slam_gmapping" name="gmapper"  machine ="$(arg machine_c2i)" respawn="false" output="screen">
@@ -94,13 +94,70 @@
 
     <!--GUI-->
     <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />
-    <node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/rgb_image _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen">
+   <!-- <node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/rgb_image _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen">
         <remap from="image" to="$(arg depth_camera)/rgb_image"/>
         <rosparam>
             image_transport: compressed
         </rosparam>
-    </node>
+    </node> -->
     <node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />
+
+    <!--2D Navigation -->
+      <!-- Create a fake laser scan -->
+    <node pkg="move_base" type="move_base" name="move_base" output="screen" machine="$(arg machine_c2i)" respawn="false" >
+        <remap from="/cmd_vel" to="/trinibot_gui/velocity_cmd"  />
+        <remap from="/odom" to="/trinibot/odometry"  />
+
+        <rosparam>
+            obstacle_range: 1
+            raytrace_range: 1.5
+            footprint: [[-0.07, 0.7], [-0.07, -0.07], [0.10, 0.07], [0.10,-0.07]]
+            #robot_radius: 0.1
+            inflation_radius: 0.2
+
+            observation_sources: laser_scan_sensor
+
+            laser_scan_sensor: {sensor_frame: lazer_frame, data_type: LaserScan, topic: $(arg depth_camera)/laserscan, marking: true, clearing: true}
+        </rosparam>
+
+        <rosparam>
+            global_costmap:
+              global_frame: /map
+              robot_base_frame: base_link
+              update_frequency: 5.0
+              static_map: false
+        </rosparam>
+        <rosparam>
+            local_costmap:
+              global_frame: odom
+              robot_base_frame: base_link
+              update_frequency: 5.0
+              publish_frequency: 2.0
+              static_map: false
+              rolling_window: true
+              width: 6.0
+              height: 6.0
+              resolution: 0.05
+        </rosparam>
+
+        <rosparam>
+        TrajectoryPlannerROS:
+          max_vel_x: 0.15
+          min_vel_x: 0.05
+          max_vel_theta: 1
+          min_in_place_vel_theta: 0.5
+
+          acc_lim_theta: 2
+          acc_lim_x: 2
+          acc_lim_y: 2
+
+          holonomic_robot: true
+        </rosparam>
+
+    </node>
+
+
+
 
 </launch>
 <!--args ="-d $HOME/.rviz/default.rviz"-->

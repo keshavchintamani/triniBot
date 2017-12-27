@@ -39,7 +39,6 @@
 #define VELOCITY_SAMPLING_RATE 100 //Instantaneous velocity capture in hz
 
 
-
 // definition of how the pins are set up
 #define xQ1Pin 3 // pin A for x axis quadrature encoder    J1 pin 4
 #define xQ2Pin 4  // pin B for x axis quadrature encoder    J1 pin 3
@@ -51,11 +50,12 @@ int gear_ratio = 100;
 int ppr=12;
 float pulse_deg=3.33;//Number of encoder pulses per degree
 float pulse_deg_base= 7.59; //Round off - should be 12.38 insted
-int max_pwm=200;
+int max_pwm=250;
 
 //For tracks
 float radius = 19.5; //mm
-float base_radius = 48.3; //mm
+float base_radius = 44; //mm
+float base_length = 88; //mm
 float circumference = 122.5221135; //mm
 int encoders_wheelrotation = 1200; //pulses
 int encoders_baserotation = 2769; //pulse
@@ -110,15 +110,18 @@ volatile float yITerm=0;
 volatile float xLastInput=0;
 volatile float yLastInput=0;
 
+float V_left =0; 
+float V_right=0;
+
 volatile signed long lastxEncoder = 0;
 volatile signed long lastyEncoder = 0;
 
-volatile signed long xki=10;  // PID integration constant
-volatile signed long xkp=1;  // PID proportional constant
+volatile signed long xki=1;  // PID w we integration constant
+volatile signed long xkp=10;  // PID proportional constant
 volatile signed long xkd=1;  // PID derivative constant
 
-volatile signed long yki=10;  // PID integration constant
-volatile signed long ykp=1;  // PID proportional constant
+volatile signed long yki=1;  // PID integration constant
+volatile signed long ykp=10;  // PID proportional constant
 volatile signed long ykd=1;  // PID derivative constant
 
 volatile float pwm_output=0; // for PID loops
@@ -133,7 +136,7 @@ float w_now=0;
 float x=0,y=0, th=0;
 float v_now = 0;
 boolean fbswitch = false;
-
+int odometry_counter = 0;
 
 //All things to send data over Serial
 #define ST 0xaa
@@ -147,8 +150,8 @@ typedef union
 //All things MotorHat Related
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
-Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
-Adafruit_DCMotor *rightMotor = AFMS.getMotor(3);
+Adafruit_DCMotor *rightMotor = AFMS.getMotor(1);
+Adafruit_DCMotor *leftMotor = AFMS.getMotor(3);
 
 void set_parameters(int _gr, int _ppr, float wheel_dia, float base_dia, int max_pwm = 150 ){
 
@@ -205,18 +208,20 @@ void setup() {
   /* move all the motors weakly negative for 2 seconds to home them.  Do this better later */
   leftMotor->run(FORWARD);
   rightMotor->run(FORWARD);
-  for (int i=0; i<100; i++) {
+  for (int i=0; i<150; i++) {
     leftMotor->setSpeed(i);
     rightMotor->setSpeed(i);
-    delay(1);
+    delay(5);
   }
+  //delay(1000);
   leftMotor->run(BACKWARD);
   rightMotor->run(BACKWARD);
-  for (int i=0; i<100; i++) {
+  for (int i=0; i<150; i++) {
     leftMotor->setSpeed(i);
     rightMotor->setSpeed(i);
-    delay(1);
+    delay(5);
   }
+  
   leftMotor->setSpeed(0);
   rightMotor->setSpeed(0);
   leftMotor->run(RELEASE);
@@ -228,27 +233,52 @@ void setup() {
 
 void loop() {
 
+    //Calculate the elapsed time
+    time_now = millis();
+    dt  = time_now - time_last;
+  
     float value = 0;
     cli(); // disable interrupt
       float copy_xSpeed = xSpeed;
+      float copy_ySpeed = ySpeed; 
     sei(); // reenable the interrupt
-  
-       //Calculate the elapsed time
-    time_now = millis();
-    dt  = time_now - time_last;
-    //Grab the current speed:
-    v_now = -copy_xSpeed/speed_constant;
-    if(modeAngular == 1){
-      //Calculate the change in angle since last reading
-      w_now = 1*v_now/(base_radius*pow(10,-3));
-      th += w_now*dt*pow(10,-3);
-    }else if (modeAngular == 0){
-      vx_now = cos(th)*v_now;
-      vy_now = sin(th)*v_now;
-      x += (vx_now)*dt*pow(10,-3);
-      y += (vy_now)*dt*pow(10,-3);
-    }
+
+    float v_left_now =  copy_xSpeed/speed_constant;
+    float v_right_now = copy_ySpeed/speed_constant;
+    //Compare
+    if (V_right < 0)
+      v_right_now = -1 * abs(v_right_now);
+    else
+      v_right_now = abs(v_right_now);
+ 
+    if (V_left < 0)
+      v_left_now = -1 * abs(v_left_now);   
+    else
+      v_left_now = abs(v_left_now);
+      
+    odometry_counter++;
+    //Calculate the change in angle since last reading
+    w_now = (v_right_now-v_left_now)/(base_length*pow(10,-3));
+    th += w_now*dt*pow(10,-3);
+    vx_now = cos(th)*(v_right_now + v_left_now)*0.5;
+    vy_now = sin(th)*(v_right_now + v_left_now)*0.5;
+    x += (vx_now)*dt*pow(10,-3);
+    y += (vy_now)*dt*pow(10,-3);
+
     time_last = time_now;
+    SendValue(73, x);
+    SendValue(74, y);
+    SendValue(75, th);
+    SendValue(76, vx_now);
+    SendValue(77, vy_now);
+    SendValue(78, w_now);
+
+    /*if(fbswitch==true){
+        char logg[128];
+        //sprintf(logg ,"%f %f ", v_left_now, v_right_now);
+        sprintf(logg ,"%d %f %f %f %f %f %f %d", odometry_counter, x, y, th, vx_now, vy_now, w_now, dt);
+        Serial.println(logg);
+    }*/
   
     if (stringComplete) {
         header = serialcommand.substring(0, serialcommand.indexOf("_"));
@@ -257,55 +287,38 @@ void loop() {
 
         if (header == "stop" ){
           //encoder.end();
+          feedbackSwitch(false);
           motorsStop();
           delay(100);
           vx_now = vy_now = w_now = 0;
         }
         else if (header == "goto"){
           //in meters
-          setPoint(POSITION, 0, (value*pow(10,3)/circumference)*encoders_wheelrotation, -(value*pow(10,3)/circumference)  * encoders_wheelrotation);
+          setPoint(POSITION,(value*pow(10,3)/circumference)*encoders_wheelrotation, -(value*pow(10,3)/circumference)  * encoders_wheelrotation);
           encoder.end();
-          setDirection();
+          //setDirection();
           encoder.begin(encoderUpdate, dT);
         }
         else if (header == "turn"){
-          setPoint(POSITION, 0, -(value/360)  * encoders_baserotation, -(value/360)  * encoders_baserotation);
+          setPoint(POSITION, -(value/360)  * encoders_baserotation, -(value/360)  * encoders_baserotation);
           encoder.end();
-          setDirection();
+          //setDirection();
           encoder.begin(encoderUpdate, dT);
           feedbackSwitch(true);
         }
-        else if (header == "speed"){
+        else if (header == "twist"){
+          odometry_counter = 0;
           feedbackSwitch(false);
-          //Divide the value from m/s to the setpoint in degree/sec
-          float setpoint = -value*speed_constant;
-          //cli();
+          float _vx, _vy, _w;
+          sscanf(values.c_str(),"%f %f %f", &_vx, &_vy, &_w);
+          float linear_V = sqrt(pow(_vx,2) + pow(_vy,2));
+          V_left = (2*linear_V - base_length*pow(10,-3)*_w)*0.5;
+          V_right = (2*linear_V + base_length*pow(10,-3)*_w)*0.5;
           encoder.end();
-            setPoint(VELOCITY, 0,  setpoint, -setpoint);
-            setDirection();
-          //sei();
-          encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz*/
-          feedbackSwitch(true);
-        }
-        else if (header == "spin"){
-          if (value < -3.142 || value > 3.142)
-             return;
-          feedbackSwitch(false);
-          /*
-          //Assume incoming request is in degrees/sec so convert into rad/s
-          //setpoint is expressed as the target wheel speed in pulses/degree as a proportion of the base radius
-          v = rw // wheel radius * wheel angular velocity
-          v = RW // base radius * base angular velocity
-          w = setpoint = R/r*(target base spin)
-          */
-          float setpoint = value*speed_constant*base_radius*pow(10,-3);
-          encoder.end();
-          //cli();
-            setPoint(VELOCITY, 1, -setpoint, -setpoint);
-            setDirection();
-          //sei();
+            setPoint(VELOCITY, V_left, V_right);
           encoder.begin(encoderUpdate, dT);  // blinkLED to run every 166 microsecond ±6 KHz
           feedbackSwitch(true);
+          
         }
         else if(header == "gains"){
           char logg[16];
@@ -335,14 +348,10 @@ void loop() {
         stringComplete = false;
         header ="";
     }
-
-    SendValue(73, x);
-    SendValue(74, y);
-    SendValue(75, th);
-    SendValue(76, vx_now);
-    SendValue(77, vy_now);
-    SendValue(78, w_now);
+   
     delay(10);
+    
+
 }
 
 void feedbackSwitch(boolean state){
@@ -406,7 +415,7 @@ void encoderUpdate(void) {
                     if(pwm_output > xoutMax) pwm_output = xoutMax;
                     else if (pwm_output < xoutMin) pwm_output = xoutMin;
 
-                    leftMotor->setSpeed(abs(pwm_output));
+                    rightMotor->setSpeed(abs(pwm_output));
 
                     switch(mode){
                       case POSITION:
@@ -419,7 +428,7 @@ void encoderUpdate(void) {
               break;
 
 
-             case 1: // y channel
+              case 1: // y channel
 
                     switch(mode){
                       case POSITION:
@@ -440,7 +449,7 @@ void encoderUpdate(void) {
                     if(pwm_output > youtMax) pwm_output = youtMax;
                     else if (pwm_output < youtMin) pwm_output = youtMin;
 
-                    rightMotor->setSpeed(abs(pwm_output));
+                    leftMotor->setSpeed(abs(pwm_output));
 
                     switch(mode){
                       case POSITION:
@@ -468,46 +477,52 @@ void setGains(signed long kp, signed long ki,signed long kd){
      xkd = ykd = kd;
    sei();
 }
-void setPoint(int mode_in, int angular_mode, float value_left, float value_right){
-   cli();
-      mode = mode_in;
-      modeAngular = angular_mode;
-      //xEncoder = 0 ;
-      //yEncoder = 0 ;
-      elapsedtime = 0;
-      xSetPoint =  value_left;
-      ySetPoint =  value_right;
-   sei();
-}
-void setDirection(){
+void setPoint(int mode_in, float v_left, float v_right){
 
+   signed int dir_r = 0;
+   signed int dir_l = 0;
+   char logg[64];
    leftMotor->run(RELEASE);
    rightMotor->run(RELEASE);
-   if ((xSetPoint+xEncoder)- xEncoder < 0 && (xSetPoint+xEncoder) < xEncoder) {
-          xoutMin = -max_pwm;
-          xoutMax = 0;
-          leftMotor->run(BACKWARD);
-        }
-        //Turn forward
-        else if ((xSetPoint+xEncoder)-xEncoder > 0 && (xSetPoint+xEncoder) > xEncoder) {
-          xoutMin = 0;
-          xoutMax = max_pwm;
-          leftMotor->run(FORWARD);
-        }
+   
+   if (v_right < 0){
+      sprintf(logg ,"Right wheel negative");
+      Serial.println(logg);
+      xoutMin = 0;
+      xoutMax = max_pwm;
+      rightMotor->run(FORWARD);
+      dir_r = -1;
+   }
+   else
+   {
+       xoutMin = -max_pwm;
+       xoutMax = 0;
+       dir_r = -1;
+       rightMotor->run(BACKWARD); 
+   }
 
-        if ((ySetPoint+yEncoder)- yEncoder < 0 && (ySetPoint+yEncoder) < yEncoder) {
-          youtMin = -max_pwm;
-          youtMax = 0;
-          rightMotor->run(BACKWARD);
-        }
-        //Turn forward
-        else if ((ySetPoint+yEncoder)-yEncoder > 0 && (ySetPoint+yEncoder) > yEncoder) {
-          youtMin = 0;
-          youtMax = max_pwm;
-          rightMotor->run(FORWARD);
-        }
+   if (v_left < 0){
+     youtMin = -max_pwm;
+     youtMax = 0;
+     leftMotor->run(BACKWARD); 
+   }
+   else
+   {
+     youtMin = 0;
+     youtMax = max_pwm;
+     leftMotor->run(FORWARD);
+   }
+   
+   cli();
+      mode = mode_in;
+      elapsedtime = 0;
+      xSetPoint =  -1*v_right*speed_constant;
+      ySetPoint =  v_left*speed_constant;
+   sei();
+
+   
+   
 }
-
 
 void serialEvent(){
 

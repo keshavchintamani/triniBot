@@ -22,29 +22,31 @@ node_name = 'trinibot_motioncontroller'
 start_reading = False
 
 def twist_callback(vel):
-
+    #rospy.loginfo(vel)
     robot.twist(vel.linear.x, vel.linear.y, vel.angular.z)
 
 def stop_callback(cb):
-    if cb.data == "STOP":
+    vals = cb.data.split()
+    if vals[0] == "STOP":
         robot.stop()
         start_reading = False
-    elif cb.data =="ODORESET":
+    elif vals[0] =="ODORESET":
         robot.reset_odo()
-    elif cb.data[0:4]=="GAINS":
+    elif vals[0]=="GAINS":
         vals = cb.data.split()
-        rospy.loginfo("Setting gains to Kp=%d Ki= %d Kd = %d", kp, ki, kd) 
         try:
             kp = int(vals[1])
             ki = int(vals[3])
             kd = int(vals[2])
-            rospy.loginfo("Setting gains to %d %d %d",kp,kd,ki) 
+            rospy.loginfo("Gains set to %d %d %d",kp,kd,ki)
+            robot.setgains(kp,ki,kd)
         except ValueError:
             rospy.logerror("Invalid gain value")
     else:
-        rospy.logwarn("%s: Invalid string", node_name)
+        rospy.logwarn("%s: Invalid string", cb)
 
 def listener():
+
     global robot, start_reading
     rospy.init_node(node_name, anonymous=True)
     rospy.Subscriber('/velocity_cmd', Twist , twist_callback)
