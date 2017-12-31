@@ -25,7 +25,7 @@ def Start():
     pose_pub = rospy.Publisher("/trinibot_sensors/imu", Imu, queue_size= 10)
     compass_pub = rospy.Publisher("/trinibot_sensors/compass", MagneticField, queue_size=10)
     
-    r = rospy.Rate(50) # 10hz
+    r = rospy.Rate(200) # 10hz
     gyro = Imu()
     temp = Temperature()
     humid = RelativeHumidity()
