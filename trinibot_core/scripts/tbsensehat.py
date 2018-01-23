@@ -30,6 +30,10 @@ def Start():
     temp = Temperature()
     humid = RelativeHumidity()
     compass = MagneticField()
+
+    gyro_covariance = rospy.get_param("/imu_gyro_covariance")
+    ang_covariance = rospy.get_param("/imu_ang_covariance")
+    acc_covariance = rospy.get_param("/imu_acc_covariance")
     while not rospy.is_shutdown():
         #get the gyro values
         gyro.header.stamp = rospy.Time.now()
@@ -42,23 +46,15 @@ def Start():
         
         quat_n90z = Quaternion(axis=[0,0,1], angle=3.14159265/2) 
         quat= quat_NED2ENU(quat)#*quat_n90z
-        #quat_enu = Quaternion(quat[0][0][0],quat[0][0][1], quat[0][0][2], quat[0][0][3])
-        #quat =  quat_enu*quat_n90x
         quat_p180y = Quaternion(axis=[0, 1, 0], angle=3.14159265)
         gyro.orientation.x = quat[0][0][0]
         gyro.orientation.y = quat[0][0][1]
         gyro.orientation.z = quat[0][0][2]
         gyro.orientation.w = quat[0][0][3]
 
-        gyro.orientation_covariance = [0.01, 0.01, 0.01,\
-                                       0.01, 0.01, 0.01,\
-                                       0.01, 0.01, 0.01]
-        gyro.angular_velocity_covariance = [0.01, 0.01, 0.01, \
-                                       0.01, 0.01, 0.01, \
-                                       0.01, 0.01, 0.01]
-        gyro.linear_acceleration_covariance = [0.01, 0.01, 0.01, \
-                                       0.01, 0.01, 0.01, \
-                                       0.01, 0.01, 0.01]
+        gyro.orientation_covariance = gyro_covariance
+        gyro.angular_velocity_covariance = ang_covariance
+        gyro.linear_acceleration_covariance = acc_covariance
 
         accelerations = np.array([sense.get_accelerometer_raw()['x']*G,sense.get_accelerometer_raw()['y']*G, \
                                   sense.get_accelerometer_raw()['z']*G])
