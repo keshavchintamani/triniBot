@@ -1,0 +1,3 @@
+[submodule "ros_depthsense_camera"]
+	path = ros_depthsense_camera
+	url = https://github.com/keshavchintamani/ros_depthsense_camera.git
