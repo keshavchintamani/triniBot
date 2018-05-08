@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="trinibot">
+<!--<xacro:include filename="$(find trinibot_core)/assets/trinibot_materials.xacro" />-->
+
+	<link name="trinibot_batt_body">
+	    <visual>
+	        <origin rpy="0.0 0 0" xyz="0 0 0"/>
+	        <geometry>
+                <mesh filename="package://trinibot_core/assets/trinibot/BATT-BODY_1_Body1_BATT-BODY.stl" scale="0.001 0.001 0.001"/>
+		    </geometry>
+			<!--<material name="blue"/>-->
+  		
+	    </visual>
+
+        <link name="trinibot_batt_body_cover_front">
+            <visual>
+                <origin rpy="0.0 0 0" xyz="0 0 0"/>
+                <geometry>
+                      <mesh filename="package://trinibot_core/assets/trinibot/BATT-COVER-FRONT_1_Component18_1_Component21_1_Component23_1_Body1_Component23.stl" scale="0.001 0.001 0.001"/>
+                </geometry>
+                <!--<material name="blue"/>-->
+
+            </visual>
+	    </link>
+
+         <link name="trinibot_batt_body_cover_rear">
+            <visual>
+                <origin rpy="0.0 0 0" xyz="0 0 0"/>
+                <geometry>
+                      <mesh filename="package://trinibot_core/assets/trinibot/BATT-COVER-REAR_1_Component51_1_Component52_1_Component53_1_Body1_Component53.stl" scale="0.001 0.001 0.001"/>
+                </geometry>
+                <!--<material name="blue"/>-->
+
+            </visual>
+	    </link>
+
+
+
+	</link>
+
+
+
+</robot>
+
+
+           <!--
+
+           <mesh filename="package://trinibot_core/assets/trinibot/BATT-COVER-FRONT_1_Component18_1_Component21_1_Component23_1_Body1_Component23.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/BATT-COVER-REAR_1_Component51_1_Component52_1_Component53_1_Body1_Component53.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/BATT-ELECTRONICS_1_Body1_BATT-ELECTRONICS.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Camera mount v7_1_Bracket-Left_1_Body1_Bracket-Left.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Camera mount v7_1_Bracket-Left_1_Body1_Bracket-Left_1.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Camera mount v7_1_Bracket-Left_2_Body1_Bracket-Left.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Camera mount v7_1_Bracket-Left_2_Body1_Bracket-Left_1.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Camera mount v7_1_Camera-Mount_1_Body1_Camera-Mount.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Component77_1_Body1_Component77.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Component78_1_Body1_Component78.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Component79_1_Body1_Component79.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Component80_1_Body1_Component80.stl" scale="0.001 0.001 0.001"/>-->
+                <!--<mesh filename="package://trinibot_core/assets/trinibot/Depthsense-mount_1_Body1_Depthsense-mount.stl" scale="0.001 0.001 0.001"/>
+
+                -->

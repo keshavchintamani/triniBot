@@ -1,5 +1,4 @@
 <launch>
-
     <!-- Setup environment -->
     <arg name="machine_bot" default = "remote"/>
     <arg name="machine_c2i" default = "local"/>
@@ -7,8 +6,10 @@
     <arg name="ip_c2i" default = "kc.local"/>
     <arg name="machine_bot_user" default = "keshavchintamani"/>
     <arg name="machine_c2i_user" default = "kc"/>
-
-    <!--<env name="ROS_MASTER_URI" value="http://kc-RPi3-mate.local:11311"/>-->
+    <arg name="depth_camera" default="trinibot/ds525" />
+    <!-- Parameters -->
+    <!--<param name="target_frame" type="string" value="lazer_frame" />-->
+    <param name="ds_camera/publish_tf" type="bool" value="false" />
 
     <machine name="$(arg machine_c2i)"
              address="$(arg ip_c2i)"
@@ -17,19 +18,37 @@
              timeout="10.0"
               >
     </machine>
+    <machine name="$(arg machine_bot)"
+             address="$(arg ip_bot)"
+             user="$(arg machine_bot_user)"
+             env-loader="/home/keshavchintamani/trinibot_ws/src/trinibot_core/pi_envloader.sh"
+             timeout="10.0"
+              >
+    </machine>
 
     <!-- Geometry-->
-
     <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_c2i)" respawn="false" output="screen">
     </node>
 
-    <!-- Motion control
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 200 1 1" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">
+    <!-- Motion control-->
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 100 1 1" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">
         <remap from="/velocity_cmd" to="/trinibot_gui/velocity_cmd"  />
         <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
     </node>
-    -->
 
-    <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />
+    <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="teleoperation" machine="$(arg machine_c2i)" respawn="false" output="screen" />
+
+    <!-- <node pkg="image_view" type="image_view" name="image_viewer"  args="image:=/rgb_image _image_transport:=compressed" machine ="$(arg machine_c2i)" respawn="false" output="screen">
+        <remap from="image" to="$(arg depth_camera)/rgb_image"/>
+        <rosparam>
+            image_transport: compressed
+        </rosparam>
+    </node> -->
 
 </launch>
+<!--args ="-d $HOME/.rviz/default.rviz"-->
+<!--GUIs
+    <node pkg="ORB_SLAM2" type="Mono" name="orbslam" args="$(find trinibot_core)/settings/ORBVoc.txt $(find trinibot_core)/settings/color-001-ORBSettings.yaml"  machine="$(arg machine_c2i)" respawn="false">
+        <remap from="/camera/image_raw" to="trinibot_camera/image_flipped/raw"/>
+      </node>
+-->
