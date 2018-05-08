@@ -243,9 +243,10 @@ void loop() {
       float copy_ySpeed = ySpeed; 
     sei(); // reenable the interrupt
 
-    float v_left_now =  copy_xSpeed/speed_constant;
-    float v_right_now = copy_ySpeed/speed_constant;
+    float v_left_now =  copy_ySpeed/speed_constant;
+    float v_right_now = copy_xSpeed/speed_constant;
     //Compare
+
     if (V_right < 0)
       v_right_now = -1 * abs(v_right_now);
     else
@@ -276,7 +277,7 @@ void loop() {
     /*if(fbswitch==true){
         char logg[128];
         //sprintf(logg ,"%f %f ", v_left_now, v_right_now);
-        sprintf(logg ,"%d %f %f %f %f %f %f %d", odometry_counter, x, y, th, vx_now, vy_now, w_now, dt);
+        sprintf(logg ," %f %f %f %f %f %f %d", v_left_now, v_right_now, th, vx_now, vy_now, w_now, dt);
         Serial.println(logg);
     }*/
   
