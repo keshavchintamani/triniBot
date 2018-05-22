@@ -11,6 +11,9 @@
     <!-- Parameters -->
     <!--<param name="target_frame" type="string" value="lazer_frame" />-->
     <param name="ds_camera/publish_tf" type="bool" value="false" />
+
+    <rosparam param="port">'/dev/ttyACM0'</rosparam>
+    <rosparam param="pid_gains">[100, 1, 1]</rosparam>
     <rosparam param="pose_covariance">[0.001, 0.001, 0.001,
                                     0.001, 0.001, 0.001,
                                     0.001, 0.001, 0.001,
@@ -70,12 +73,15 @@
     <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_c2i)" respawn="false" output="screen">
     </node>
 
-    <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(arg machine_bot)" respawn="false" />
+    <!--<node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(arg machine_bot)" respawn="false" />-->
 
     <!-- Motion control-->
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 100 1 1" name="robotcontroller" machine="$(arg machine_c2i)" respawn="true" output="screen">
-        <remap from="/velocity_cmd" to="/cmd_vel"  />
+    <node pkg="trinibot_core" type="tbvelocityramper.py" name="tbvelocityramper" machine="$(arg machine_c2i)" respawn="false" output="screen">
+    </node>
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">
+        <remap from="/velocity_cmd" to="/cmd_vel_ramped"  />
         <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
+
     </node>
 
     <!--GUI-->
@@ -84,7 +90,7 @@
     <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="teleoperation" machine="$(arg machine_c2i)" respawn="false" output="screen" />
 
 
-    <!--<node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />-->
+  <!--  &lt;!&ndash;<node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />&ndash;&gt;
     <rosparam command="load" file="$(find trinibot_core)/params/tb_ekf.yaml" />
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" machine="$(arg machine_c2i)" clear_params="false">
          <rosparam>
@@ -143,20 +149,20 @@
                 # the size of the subscription queue so that more measurements are fused.
                 odom0_queue_size: 1
 
-                <!--imu0: /trinibot_sensors/imu-->
-                <!--imu0_config: [false, false, false,-->
-                              <!--true,  true,  true,-->
-                              <!--false, false , false,-->
-                              <!--true,  true,  true,-->
-                              <!--true,  true,  false]-->
+                &lt;!&ndash;imu0: /trinibot_sensors/imu&ndash;&gt;
+                &lt;!&ndash;imu0_config: [false, false, false,&ndash;&gt;
+                              &lt;!&ndash;true,  true,  true,&ndash;&gt;
+                              &lt;!&ndash;false, false , false,&ndash;&gt;
+                              &lt;!&ndash;true,  true,  true,&ndash;&gt;
+                              &lt;!&ndash;true,  true,  false]&ndash;&gt;
 
-                <!--imu0_queue_size: 100-->
+                &lt;!&ndash;imu0_queue_size: 100&ndash;&gt;
 
 
         </rosparam>
     </node>
-
-    <node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />
+-->
+    <!--<node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />-->
 
 
 

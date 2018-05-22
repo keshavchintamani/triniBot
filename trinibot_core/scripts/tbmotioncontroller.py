@@ -21,6 +21,13 @@ node_name = 'trinibot_motioncontroller'
 
 start_reading = False
 
+def fetch_param(name, default):
+    if rospy.has_param(name):
+        return rospy.get_param(name)
+    else:
+        print "parameter [%s] not defined. Defaulting to %.3f" % (name, default)
+        return default
+
 def twist_callback(vel):
     #rospy.loginfo(vel)
     robot.twist(vel.linear.x, vel.linear.y, vel.angular.z)
@@ -54,13 +61,12 @@ def listener():
     pub = rospy.Publisher('/trinibot/odometry', Odometry, queue_size= 10)
     xy = 0
 
-    if len(sys.argv) > 1:
-        robot = TrackedTrinibot(xy, sys.argv[1])
-        robot.setgains(int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
-    else:
-        robot = TrackedTrinibot(xy, '/dev/ttyACM0')
-        robot.setgains(100, 1, 1)
-        print "using default serial device and gains"
+    #Get parameters from server
+    rospy.loginfo("Opening robot on port %s",fetch_param('~port', '/dev/ttyACM0'))
+    gains= fetch_param('~pid_gains', [10, 1, 1])
+    rospy.loginfo("Setting robot gains to %d %d %d", gains[0], gains[1], gains[2] )
+    robot = TrackedTrinibot(xy, fetch_param('~port', '/dev/ttyACM0'))
+    robot.setgains(gains[0], gains[1], gains[2])
 
     r = rospy.Rate(100)
 
@@ -69,7 +75,6 @@ def listener():
     odom.twist.covariance = rospy.get_param("/twist_covariance")
 
     while not rospy.is_shutdown():
-        #if(robot.is_running()):
         robot.get_feedback()
         odom.header.stamp = rospy.Time.now()
         odom.header.frame_id = "odom"
