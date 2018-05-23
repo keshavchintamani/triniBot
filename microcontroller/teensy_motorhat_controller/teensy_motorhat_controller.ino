@@ -293,26 +293,14 @@ void loop() {
           delay(100);
           vx_now = vy_now = w_now = 0;
         }
-        else if (header == "goto"){
-          //in meters
-          setPoint(POSITION,(value*pow(10,3)/circumference)*encoders_wheelrotation, -(value*pow(10,3)/circumference)  * encoders_wheelrotation);
-          encoder.end();
-          //setDirection();
-          encoder.begin(encoderUpdate, dT);
-        }
-        else if (header == "turn"){
-          setPoint(POSITION, -(value/360)  * encoders_baserotation, -(value/360)  * encoders_baserotation);
-          encoder.end();
-          //setDirection();
-          encoder.begin(encoderUpdate, dT);
-          feedbackSwitch(true);
-        }
         else if (header == "twist"){
           odometry_counter = 0;
           feedbackSwitch(false);
           float _vx, _vy, _w;
           sscanf(values.c_str(),"%f %f %f", &_vx, &_vy, &_w);
           float linear_V = sqrt(pow(_vx,2) + pow(_vy,2));
+//          float linear_V_now = sqrt(pow(vx_now,2) + pow(vy_now,2));
+
           V_left = (2*linear_V - base_length*pow(10,-3)*_w)*0.5;
           V_right = (2*linear_V + base_length*pow(10,-3)*_w)*0.5;
           encoder.end();
@@ -520,9 +508,7 @@ void setPoint(int mode_in, float v_left, float v_right){
       xSetPoint =  -1*v_right*speed_constant;
       ySetPoint =  v_left*speed_constant;
    sei();
-
-   
-   
+ 
 }
 
 void serialEvent(){
