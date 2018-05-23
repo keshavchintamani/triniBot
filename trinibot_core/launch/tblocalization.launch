@@ -14,6 +14,15 @@
 
     <rosparam param="port">'/dev/ttyACM0'</rosparam>
     <rosparam param="pid_gains">[100, 1, 1]</rosparam>
+
+    <rosparam param="angular_scale">0.1</rosparam>
+    <rosparam param="linear_scale">0.1</rosparam>
+    <rosparam param="angular_accel">0.5</rosparam>
+    <rosparam param="linear_accel">0.5</rosparam>
+    <rosparam param="max_linear_velocity">0.1</rosparam>
+    <rosparam param="max_angular_velocity">1</rosparam>
+
+
     <rosparam param="pose_covariance">[0.001, 0.001, 0.001,
                                     0.001, 0.001, 0.001,
                                     0.001, 0.001, 0.001,
@@ -78,7 +87,7 @@
     <!-- Motion control-->
     <node pkg="trinibot_core" type="tbvelocityramper.py" name="tbvelocityramper" machine="$(arg machine_c2i)" respawn="false" output="screen">
     </node>
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_bot)" respawn="false" output="screen">
         <remap from="/velocity_cmd" to="/cmd_vel_ramped"  />
         <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
 
@@ -87,23 +96,23 @@
     <!--GUI-->
     <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />
 
-    <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="teleoperation" machine="$(arg machine_c2i)" respawn="false" output="screen" />
+    <!--<node pkg="rqt_robot_steering" type="rqt_robot_steering" name="teleoperation" machine="$(arg machine_c2i)" respawn="false" output="screen" />-->
 
 
-  <!--  &lt;!&ndash;<node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />&ndash;&gt;
-    <rosparam command="load" file="$(find trinibot_core)/params/tb_ekf.yaml" />
+  <!--  &lt;!&ndash;<node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />-->
+    <!--<rosparam command="load" file="$(find trinibot_core)/params/tb_ekf.yaml" />-->
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" machine="$(arg machine_c2i)" clear_params="false">
          <rosparam>
                 # The frequency, in Hz, at which the filter will output a position estimate. Note that the filter will not begin
                 # computation until it receives at least one message from one of the inputs. It will then run continuously at the
                 # frequency specified here, regardless of whether it receives more measurements. Defaults to 30 if unspecified.
-                frequency: 30
+                frequency: 10
 
                 # ekf_localization_node and ukf_localization_node both use a 3D omnidirectional motion model. If this parameter is
                 # set to true, no 3D information will be used in your state estimate. Use this if you are operating in a planar
                 # environment and want to ignore the effect of small variations in the ground plane that might otherwise be detected
                 # by, for example, an IMU. Defaults to false if unspecified.
-                two_d_mode: false
+                two_d_mode: true
 
                 # Use this parameter to provide specify how long the tf listener should wait for a transform to become available.
                 # Defaults to 0.0 if unspecified.
@@ -140,7 +149,7 @@
 
                 #Note: Seems setting yaw to true causes a NaN failure somewhere
                 odom0_config: [true,  true,  false,
-                               false, false, false,
+                               false, false, true,
                                true, true, false,
                                false, false, true,
                                false, false, false]
@@ -149,19 +158,19 @@
                 # the size of the subscription queue so that more measurements are fused.
                 odom0_queue_size: 1
 
-                &lt;!&ndash;imu0: /trinibot_sensors/imu&ndash;&gt;
-                &lt;!&ndash;imu0_config: [false, false, false,&ndash;&gt;
-                              &lt;!&ndash;true,  true,  true,&ndash;&gt;
-                              &lt;!&ndash;false, false , false,&ndash;&gt;
-                              &lt;!&ndash;true,  true,  true,&ndash;&gt;
-                              &lt;!&ndash;true,  true,  false]&ndash;&gt;
+                <!--imu0: /trinibot_sensors/imu&ndash;&gt;-->
+                <!--imu0_config: [false, false, false,&ndash;&gt;-->
+                              <!--&lt;!&ndash;true,  true,  true,&ndash;&gt;-->
+                              <!--&lt;!&ndash;false, false , false,&ndash;&gt;-->
+                              <!--&lt;!&ndash;true,  true,  true,&ndash;&gt;-->
+                              <!--&lt;!&ndash;true,  true,  false]&ndash;&gt;-->
 
-                &lt;!&ndash;imu0_queue_size: 100&ndash;&gt;
+                <!--&lt;!&ndash;imu0_queue_size: 100&ndash;&gt;-->
 
 
         </rosparam>
     </node>
--->
+
     <!--<node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />-->
 
 
