@@ -66,7 +66,7 @@ def listener():
     xy = 0
 
     #Get parameters from server
-    rospy.loginfo("Opening robot on port %s",fetch_param('~port', '/dev/ttyACM0'))
+    rospy.loginfo("Opening robot on port %s",fetch_param('/port', '/dev/ttyACM0'))
     gains= fetch_param('/pid_gains', [10, 1, 1])
     rospy.loginfo("Setting robot gains to %d %d %d", gains[0], gains[1], gains[2] )
     robot = TrackedTrinibot(xy, fetch_param('/port', '/dev/ttyACM0'))
