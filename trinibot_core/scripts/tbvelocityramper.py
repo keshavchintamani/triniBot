@@ -57,11 +57,11 @@ if __name__ == '__main__':
     rospy.Subscriber('/cmd_vel', Twist, velocity_ramp_cb)
     g_target_twist = Twist() # initializes to zero
     g_last_twist = Twist()
-    g_vel_scales[0] = fetch_param('~angular_scale', 0.1)
-    g_vel_scales[1] = fetch_param('~linear_scale', 0.1)
-    g_vel_ramps[0] = fetch_param('~angular_accel', 1.0)
-    g_vel_ramps[1] = fetch_param('~linear_accel', 1.0)
-    rate = rospy.Rate(20)
+    g_vel_scales[0] = fetch_param('/angular_scale', 0.1)
+    g_vel_scales[1] = fetch_param('/linear_scale', 0.1)
+    g_vel_ramps[0] = fetch_param('/angular_accel', 0.4)
+    g_vel_ramps[1] = fetch_param('/linear_accel', 0.5)
+    rate = rospy.Rate(10)
 
     while not rospy.is_shutdown():
         send_twist()

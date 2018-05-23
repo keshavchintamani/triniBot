@@ -8,7 +8,7 @@ roslib.load_manifest('trinibot_core')
 import sys
 import tf.transformations as transforms
 import time
-
+import math as m
 from tbmotorcontroller import TrackedTrinibot
 from geometry_msgs.msg import Twist, Pose
 from nav_msgs.msg import Odometry
@@ -25,12 +25,16 @@ def fetch_param(name, default):
     if rospy.has_param(name):
         return rospy.get_param(name)
     else:
-        print "parameter [%s] not defined. Defaulting to %.3f" % (name, default)
+        print "parameter [%s] not defined. Defaulting to %s" % (name, str(default))
         return default
 
 def twist_callback(vel):
     #rospy.loginfo(vel)
-    robot.twist(vel.linear.x, vel.linear.y, vel.angular.z)
+    if not (abs(m.sqrt(m.pow(vel.linear.x, 2) + m.pow(vel.linear.y, 2))) > max_lin_vel or abs(vel.angular.z) > max_ang_vel):
+        try:
+            robot.twist(vel.linear.x, vel.linear.y, vel.angular.z)
+        except NameError:
+            rospy.logerr("Callback started without data")
 
 def stop_callback(cb):
     vals = cb.data.split()
@@ -55,17 +59,17 @@ def stop_callback(cb):
 def listener():
 
     global robot, start_reading
+    global max_lin_vel, max_ang_vel
     rospy.init_node(node_name, anonymous=True)
-    rospy.Subscriber('/velocity_cmd', Twist , twist_callback)
-    rospy.Subscriber('/string_cmd', String, stop_callback)
+
     pub = rospy.Publisher('/trinibot/odometry', Odometry, queue_size= 10)
     xy = 0
 
     #Get parameters from server
     rospy.loginfo("Opening robot on port %s",fetch_param('~port', '/dev/ttyACM0'))
-    gains= fetch_param('~pid_gains', [10, 1, 1])
+    gains= fetch_param('/pid_gains', [10, 1, 1])
     rospy.loginfo("Setting robot gains to %d %d %d", gains[0], gains[1], gains[2] )
-    robot = TrackedTrinibot(xy, fetch_param('~port', '/dev/ttyACM0'))
+    robot = TrackedTrinibot(xy, fetch_param('/port', '/dev/ttyACM0'))
     robot.setgains(gains[0], gains[1], gains[2])
 
     r = rospy.Rate(100)
@@ -73,6 +77,12 @@ def listener():
     odom = Odometry()
     odom.pose.covariance = rospy.get_param("/pose_covariance")
     odom.twist.covariance = rospy.get_param("/twist_covariance")
+
+    rospy.Subscriber('/velocity_cmd', Twist, twist_callback)
+    rospy.Subscriber('/string_cmd', String, stop_callback)
+
+    max_lin_vel= fetch_param('/max_linear_velocity', 0.1)
+    max_ang_vel= fetch_param('/max_angular_velocity', 1.57)
 
     while not rospy.is_shutdown():
         robot.get_feedback()
