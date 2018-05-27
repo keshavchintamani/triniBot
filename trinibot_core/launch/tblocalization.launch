@@ -22,36 +22,26 @@
     <rosparam param="max_linear_velocity">0.1</rosparam>
     <rosparam param="max_angular_velocity">1</rosparam>
 
+    <rosparam param="pose_covariance">[0.000001229025,0,0,0,0,0,
+        0.00000153288,0.00000246712,0,0,0,0,
+        0,0,0,0,0,0,
+        0,0,0,0,0,0,
+        0,0,0,0,0,0,
+        0.000055113379,0.000082362812,0,0,0,0.002917678005]
+    </rosparam>
 
-    <rosparam param="pose_covariance">[0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001]</rosparam>
-
-    <rosparam param="twist_covariance">[0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001,
-                                    0.001, 0.001, 0.001]</rosparam>
+    <rosparam param="twist_covariance">[0.0000003945578231,0,0,0,0,0,
+        0.0000001768707483,0.0000005850340136,0,0,0,0,
+        0,0,0,0,0,0,
+        0,0,0,0,0,0,
+        0,0,0,0,0,0,
+        0.000005217687075,0.00000687755102,0,0,0,0.0001468163265]
+    </rosparam>
 
     <rosparam param="imu_gyro_covariance">[0.000, 0.000, 0.000,
                                     0.000, 0.000, 0.000,
-                                    0.000, 0.000, 0.000]</rosparam>
+                                    0.000, 0.000, 0.000]
+    </rosparam>
 
     <!--[0.001, 0.001, 0.001,-->
                                     <!--0.001, 0.001, 0.001,-->
@@ -82,12 +72,12 @@
     <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_c2i)" respawn="false" output="screen">
     </node>
 
-    <!--<node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(arg machine_bot)" respawn="false" />-->
+    <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(arg machine_bot)" respawn="false" />
 
     <!-- Motion control-->
     <node pkg="trinibot_core" type="tbvelocityramper.py" name="tbvelocityramper" machine="$(arg machine_c2i)" respawn="false" output="screen">
     </node>
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_bot)" respawn="false" output="screen">
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">
         <remap from="/velocity_cmd" to="/cmd_vel_ramped"  />
         <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
 
@@ -96,7 +86,7 @@
     <!--GUI-->
     <node pkg="trinibot_core" type="tbteleopgui.py" name="teleoperation_gui" machine="$(arg machine_c2i)" respawn="false" output="screen" />
 
-    <!--<node pkg="rqt_robot_steering" type="rqt_robot_steering" name="teleoperation" machine="$(arg machine_c2i)" respawn="false" output="screen" />-->
+    <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="teleoperation" machine="$(arg machine_c2i)" respawn="false" output="screen" />
 
 
   <!--  &lt;!&ndash;<node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />-->
@@ -156,22 +146,22 @@
 
                 # If you have high-frequency data or are running with a low frequency parameter value, then you may want to increase
                 # the size of the subscription queue so that more measurements are fused.
-                odom0_queue_size: 1
+                odom0_queue_size: 10
 
-                <!--imu0: /trinibot_sensors/imu&ndash;&gt;-->
-                <!--imu0_config: [false, false, false,&ndash;&gt;-->
-                              <!--&lt;!&ndash;true,  true,  true,&ndash;&gt;-->
-                              <!--&lt;!&ndash;false, false , false,&ndash;&gt;-->
-                              <!--&lt;!&ndash;true,  true,  true,&ndash;&gt;-->
-                              <!--&lt;!&ndash;true,  true,  false]&ndash;&gt;-->
+                imu0: /trinibot_sensors/imu
+                imu0_config: [false, false, false,
+                              true,  true,  true,
+                              false, false , false,
+                              true,  true,  true,
+                              true,  true,  false]
 
-                <!--&lt;!&ndash;imu0_queue_size: 100&ndash;&gt;-->
+                imu0_queue_size: 10
 
 
         </rosparam>
     </node>
 
-    <!--<node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />-->
+    <node pkg="rviz" type="rviz" name="RViz"   machine="$(arg machine_c2i)" respawn="false" />
 
 
 
