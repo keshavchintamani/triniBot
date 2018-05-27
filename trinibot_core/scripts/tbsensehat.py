@@ -12,6 +12,14 @@ from transforms3d import quaternions
 
 D2R = 0.0174533
 G = 9.81
+
+def fetch_param(name, default):
+    if rospy.has_param(name):
+        return rospy.get_param(name)
+    else:
+        print "parameter [%s] not defined. Defaulting to %s" % (name, str(default))
+        return default
+
 def Start():
     sense=SenseHat()
     sense.clear()
@@ -31,21 +39,27 @@ def Start():
     humid = RelativeHumidity()
     compass = MagneticField()
 
-    gyro_covariance = rospy.get_param("/imu_gyro_covariance")
-    ang_covariance = rospy.get_param("/imu_ang_covariance")
-    acc_covariance = rospy.get_param("/imu_acc_covariance")
+    gyro_covariance = fetch_param("/imu_gyro_covariance", [0.000, 0.000, 0.000,
+                                    0.000, 0.000, 0.000,
+                                    0.000, 0.000, 0.000])
+    ang_covariance = fetch_param("/imu_ang_covariance", [0.000, 0.000, 0.000,
+                                    0.000, 0.000, 0.000,
+                                    0.000, 0.000, 0.000])
+    acc_covariance = fetch_param("/imu_acc_covariance", [0.000, 0.000, 0.000,
+                                    0.000, 0.000, 0.000,
+                                    0.000, 0.000, 0.000])
     while not rospy.is_shutdown():
         #get the gyro values
         gyro.header.stamp = rospy.Time.now()
         gyro.header.frame_id="trinibot_imu"
         #convert euler into quaternion
-        print sense.get_orientation_radians()['roll'], sense.get_orientation_radians()['pitch'], sense.get_orientation_radians()['yaw']
+        #print sense.get_orientation_radians()['roll'], sense.get_orientation_radians()['pitch'], sense.get_orientation_radians()['yaw']
         quat = tf.transformations.quaternion_from_euler(sense.get_orientation_degrees()['roll']*D2R, \
                                                 sense.get_orientation_degrees()['pitch']*D2R, \
                                                 sense.get_orientation_degrees()['yaw']*D2R) 
         
         quat_n90z = Quaternion(axis=[0,0,1], angle=3.14159265/2) 
-        quat= quat_NED2ENU(quat)#*quat_n90z
+        quat= quat_n90z*quat_NED2ENU(quat)
         quat_p180y = Quaternion(axis=[0, 1, 0], angle=3.14159265)
         gyro.orientation.x = quat[0][0][0]
         gyro.orientation.y = quat[0][0][1]
