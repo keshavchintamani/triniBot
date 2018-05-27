@@ -174,7 +174,7 @@ class TrackedTrinibot():
 
     def twist(self, vx, vy, w):
         command= "twist_"+str(vx)+" " + str(vy) + " " + self.addnewline(str(w))
-        self.logger.info(command)
+        #self.logger.info(command)
         self.serial.writeserial(command)
 
     def drive_at_speed(self, target_speed=100.0):
@@ -189,8 +189,9 @@ class TrackedTrinibot():
        command = "spin_" + self.addnewline(str(target_rate))
        self.logger.info(command);
        self.serial.writeserial(command)
-       return(True) 
+       return(True)
 
+    # Deprecated. Microcontroller does not support this function.
     def drive_to_distance(self, target_distance=188.49):
        self.set_running(True)
        command = "goto_" + self.addnewline(str(target_distance))
@@ -198,6 +199,7 @@ class TrackedTrinibot():
        self.serial.writeserial(command)
        return(True)
 
+    # Deprecated. Microcontroller does not support this function.
     def turn_to_angle(self, target_angle=45):
        self.set_running(True)
        command = "turn_" + self.addnewline(str(target_angle))

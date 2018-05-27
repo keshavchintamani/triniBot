@@ -7,6 +7,7 @@ import roslib
 roslib.load_manifest('trinibot_core')
 import sys
 import tf.transformations as transforms
+import tf_conversions as tf_conversions
 import time
 import math as m
 from tbmotorcontroller import TrackedTrinibot
@@ -37,12 +38,17 @@ def twist_callback(vel):
             rospy.logerr("Callback started without data")
 
 def stop_callback(cb):
+    global q_init, th_old
+
     vals = cb.data.split()
     if vals[0] == "STOP":
         robot.stop()
         start_reading = False
     elif vals[0] =="ODORESET":
         robot.reset_odo()
+        q_init = transforms.quaternion_from_euler(0, 0, 0)
+        th_old = 0
+
     elif vals[0]=="GAINS":
         vals = cb.data.split()
         try:
@@ -84,6 +90,8 @@ def listener():
     max_lin_vel= fetch_param('/max_linear_velocity', 0.1)
     max_ang_vel= fetch_param('/max_angular_velocity', 1.57)
 
+    q_init = transforms.quaternion_from_euler(0,0,0)
+    th_old = 0
     while not rospy.is_shutdown():
         robot.get_feedback()
         odom.header.stamp = rospy.Time.now()
@@ -91,9 +99,11 @@ def listener():
         odom.child_frame_id ="base_link"
         odom.pose.pose.position.x = float(robot.serial.variables.x['value'])
         odom.pose.pose.position.y = float(robot.serial.variables.y['value'])
-
-        q = transforms.quaternion_from_euler(0, 0, float(robot.serial.variables.theta['value']))
-
+        th = float(robot.serial.variables.theta['value'])
+        q_diff = transforms.quaternion_from_euler(0, 0, th-th_old)
+        q = transforms.quaternion_multiply(q_diff,q_init)
+        #q = transforms.quaternion_from_euler(0, 0, float(robot.serial.variables.theta['value']))
+        #rospy.loginfo("Angle turned (rads): %f", float(robot.serial.variables.theta['value']))
         odom.pose.pose.orientation.x = q[0]
         odom.pose.pose.orientation.y = q[1]
         odom.pose.pose.orientation.z = q[2]
@@ -101,9 +111,9 @@ def listener():
         odom.twist.twist.linear.x = float(robot.serial.variables.vx['value'])
         odom.twist.twist.linear.y = float(robot.serial.variables.vy['value'])
         odom.twist.twist.angular.z = float(robot.serial.variables.omega['value'])
-
         pub.publish(odom)
-
+        th_old = th
+        q_init = q
         r.sleep()
 
 if __name__ == '__main__':
