@@ -7,7 +7,6 @@ import roslib
 roslib.load_manifest('trinibot_core')
 import sys
 import tf.transformations as transforms
-import tf_conversions as tf_conversions
 import time
 import math as m
 from tbmotorcontroller import TrackedTrinibot
