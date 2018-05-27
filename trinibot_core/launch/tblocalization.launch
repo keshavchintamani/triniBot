@@ -138,7 +138,7 @@
                 #ax, ay, az
 
                 #Note: Seems setting yaw to true causes a NaN failure somewhere
-                odom0_config: [true,  true,  false,
+                odom0_config: [false,  false,  false,
                                false, false, true,
                                true, true, false,
                                false, false, true,
@@ -152,7 +152,7 @@
                 imu0_config: [false, false, false,
                               true,  true,  true,
                               false, false , false,
-                              true,  true,  true,
+                              false,  false,  true,
                               true,  true,  false]
 
                 imu0_queue_size: 10
