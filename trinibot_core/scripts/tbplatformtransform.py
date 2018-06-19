@@ -13,6 +13,19 @@ def handle_trinibot_pose(odo):
     br = tf2_ros.TransformBroadcaster()
     #Transform of baselink in a fixed odometry frame. note that the odometry frame will move if reset
     time = rospy.Time.now()
+
+    map_tr = geometry_msgs.msg.TransformStamped()
+    map_tr.header.stamp = time
+    map_tr.header.frame_id = "map"
+    map_tr.child_frame_id = "odom"
+
+    map_tr.transform.translation.x = 0.0
+    map_tr.transform.translation.y = 0.0
+    map_tr.transform.rotation.w = 1
+
+    br.sendTransform(map_tr)
+
+
     baselink_tr = geometry_msgs.msg.TransformStamped()
     baselink_tr.header.stamp = time
     baselink_tr.header.frame_id = "odom"
