@@ -26,15 +26,17 @@
               >
     </machine>
 
+    
+
     <!-- Geometry-->
     <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_c2i)" respawn="false" output="screen">
     </node>
 
     <!-- Motion control-->
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 100 1 1" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">
-        <remap from="/velocity_cmd" to="/trinibot_gui/velocity_cmd"  />
-        <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
-    </node>
+    <!--<node pkg="trinibot_core" type="tbmotioncontroller.py" args="/dev/ttyACM0 100 1 1" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">-->
+        <!--<remap from="/velocity_cmd" to="/trinibot_gui/velocity_cmd"  />-->
+        <!--<remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />-->
+    <!--</node>-->
 
     <node pkg="rqt_robot_steering" type="rqt_robot_steering" name="teleoperation" machine="$(arg machine_c2i)" respawn="false" output="screen" />
 

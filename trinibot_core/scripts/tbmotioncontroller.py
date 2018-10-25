@@ -71,10 +71,26 @@ def listener():
     xy = 0
 
     #Get parameters from server
-    rospy.loginfo("Opening robot on port %s",fetch_param('/port', '/dev/ttyACM0'))
-    gains= fetch_param('/pid_gains', [10, 1, 1])
+    rospy.loginfo("Opening robot on port %s",fetch_param('~port', '/dev/ttyACM0'))
+    robot = TrackedTrinibot(xy, fetch_param('~port', '/dev/ttyACM0'))
+    #Get and set the motion controllers parameters
+    gear_ratio = fetch_param('~gear_ratio', 100)
+    cpr = fetch_param('~cpr', 12)
+    wheel_diameter = fetch_param('~wheel_diameter', 39)
+    base_diameter = fetch_param('~base_diameter', 88)
+    max_pwm = fetch_param('~max_pwm', 150)
+
+    rospy.loginfo("Setting controller paramters to:")
+    rospy.loginfo("Gear Ratio: %d", gear_ratio)
+    rospy.loginfo("CPR: %d", cpr)
+    rospy.loginfo("Wheel Diameter: %f", wheel_diameter)
+    rospy.loginfo("Base Diameter: %f", base_diameter)
+    rospy.loginfo("Max PWM: %d", max_pwm)
+    robot.set_parameters(gear_ratio, cpr, wheel_diameter, base_diameter, max_pwm)
+
+    # Get and set gains
+    gains= fetch_param('~pid_gains', [10, 1, 1])
     rospy.loginfo("Setting robot gains to %d %d %d", gains[0], gains[1], gains[2] )
-    robot = TrackedTrinibot(xy, fetch_param('/port', '/dev/ttyACM0'))
     robot.setgains(gains[0], gains[1], gains[2])
 
     r = rospy.Rate(100)
@@ -86,8 +102,8 @@ def listener():
     rospy.Subscriber('/velocity_cmd', Twist, twist_callback)
     rospy.Subscriber('/string_cmd', String, stop_callback)
 
-    max_lin_vel= fetch_param('/max_linear_velocity', 0.1)
-    max_ang_vel= fetch_param('/max_angular_velocity', 1.57)
+    max_lin_vel= fetch_param('~max_linear_velocity', 0.1)
+    max_ang_vel= fetch_param('~max_angular_velocity', 1.57)
 
     q_init = transforms.quaternion_from_euler(0,0,0)
     th_old = 0

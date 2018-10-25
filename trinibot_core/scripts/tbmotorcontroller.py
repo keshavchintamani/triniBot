@@ -230,6 +230,15 @@ class TrackedTrinibot():
         self.set_running(False)
         self.logger.info("odo reset called");
 
+    def set_parameters(self, gear_ratio, cpr, wheel_dia, base_dia, pwm=150):
+        command = "configure_"+self.addnewline(str(gear_ratio)+" "+str(cpr)+" "+str(wheel_dia)+" "+ str(base_dia)+ " " + str(pwm))
+        self.serial.writeserial(command)
+
+    def get_parameters(self):
+        command = self.addnewline("configure?_")
+        self.serial.writeserial(command)
+        return (self.serial.readSerial())
+
     def exit(self):
         self.stop()
 

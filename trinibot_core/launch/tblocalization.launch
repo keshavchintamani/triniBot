@@ -12,16 +12,6 @@
     <!--<param name="target_frame" type="string" value="lazer_frame" />-->
     <param name="ds_camera/publish_tf" type="bool" value="false" />
 
-    <rosparam param="port">'/dev/ttyACM0'</rosparam>
-    <rosparam param="pid_gains">[100, 1, 1]</rosparam>
-
-    <rosparam param="angular_scale">0.1</rosparam>
-    <rosparam param="linear_scale">0.1</rosparam>
-    <rosparam param="angular_accel">0.5</rosparam>
-    <rosparam param="linear_accel">0.5</rosparam>
-    <rosparam param="max_linear_velocity">0.1</rosparam>
-    <rosparam param="max_angular_velocity">1</rosparam>
-
     <rosparam param="pose_covariance">[0.000001229025,0,0,0,0,0,
         0.00000153288,0.00000246712,0,0,0,0,
         0,0,0,0,0,0,
@@ -103,7 +93,6 @@
             # 2->inf : Parallelism level
             concurrency_level: 3
         </rosparam>
-
     </node>
 
     <!-- Geometry-->
@@ -114,11 +103,28 @@
 
     <!-- Motion control-->
     <node pkg="trinibot_core" type="tbvelocityramper.py" name="tbvelocityramper" machine="$(arg machine_c2i)" respawn="false" output="screen">
+            <rosparam>
+                angular_scale: 0.1
+                linear_scale: 0.1
+                angular_accel: 0.5
+                linear_accel: 0.5
+            </rosparam>
     </node>
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_bot)" respawn="false" output="screen">
+
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">
         <remap from="/velocity_cmd" to="/cmd_vel_ramped"  />
         <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
-
+        <rosparam>
+            gear_ratio: 100 #gearbox ratio
+            cpr: 12 #Counts per revolution
+            wheel_diameter: 60 #Diameter of the robot's driving wheel in millimeters
+            base_diameter: 88 #distance between wheels
+            max_pwm: 250 # Maximum PWM to be output for PID
+            port: /dev/ttyACM0
+            pid_gains: [100, 1, 1]
+            max_linear_velocity: 0.1
+            max_angular_velocity: 1
+        </rosparam>
     </node>
 
     <!--GUI-->
