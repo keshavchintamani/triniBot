@@ -96,7 +96,7 @@
     </node>
 
     <!-- Geometry-->
-    <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_c2i)" respawn="false" output="screen">
+    <node pkg="trinibot_core" type="tbplatformtransform.py" name="tbplatformtransforms" machine="$(arg machine_bot)" respawn="false" output="screen">
     </node>
 
     <node pkg="trinibot_core" type="tbsensehat.py" name="sensehat"  machine="$(arg machine_bot)" respawn="false" />
@@ -111,7 +111,7 @@
             </rosparam>
     </node>
 
-    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_c2i)" respawn="false" output="screen">
+    <node pkg="trinibot_core" type="tbmotioncontroller.py" name="robotcontroller" machine="$(arg machine_bot)" respawn="false" output="screen">
         <remap from="/velocity_cmd" to="/cmd_vel_ramped"  />
         <remap from="/string_cmd" to= "/trinibot_gui/string_cmd"  />
         <rosparam>

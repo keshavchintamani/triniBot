@@ -153,7 +153,7 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *rightMotor = AFMS.getMotor(1);
 Adafruit_DCMotor *leftMotor = AFMS.getMotor(3);
 
-void set_parameters(int _gr, int _ppr, float wheel_dia, float base_dia, int max_pwm = 150 ){
+void set_parameters(int _gr, int _ppr, float wheel_dia, float base_dia, int _pwm = 150 ){
 
   radius = wheel_dia/2;
   base_radius = base_dia/2;
@@ -165,6 +165,7 @@ void set_parameters(int _gr, int _ppr, float wheel_dia, float base_dia, int max_
   speed_constant = (float) pulse_deg*(R2D/(radius*pow(10,-3)))/VELOCITY_SAMPLING_RATE;
   //Converts speed in deg/s into pulses/sec @ specified velocity sampling rate period
   spin_constant = (float) (radius/base_radius)*pulse_deg_base/VELOCITY_SAMPLING_RATE;
+  max_pwm=_pwm;
 
 }
 
@@ -326,7 +327,6 @@ void loop() {
           int _gr, _ppr, max_pwm;
           float wheel_dia, base_dia;
           sscanf(values.c_str(),"%d %d %f %f %d", &_gr, &_ppr, &wheel_dia, &base_dia, &max_pwm );
-          Serial.println(wheel_dia);
           set_parameters(_gr, _ppr, wheel_dia, base_dia, max_pwm);
         }
         else if(header == "configure?"){
